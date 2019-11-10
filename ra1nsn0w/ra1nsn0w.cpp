@@ -25,14 +25,14 @@ using namespace tihmstar::ra1nsn0w;
 
 
 static void printline(int percent){
-    info("%03d [",percent);for (int i=0; i<100; i++) putchar((percent >0) ? ((--percent > 0) ? '=' : '>') : ' ');
-    info("]");
+    printf("%03d [",percent);for (int i=0; i<100; i++) putchar((percent >0) ? ((--percent > 0) ? '=' : '>') : ' ');
+    printf("]");
 }
 
 static void fragmentzip_callback(unsigned int progress){
-    info("\x1b[A\033[J"); //clear 2 lines
+    printf("\x1b[A\033[J"); //clear 2 lines
     printline((int)progress);
-    info("\n");
+    printf("\n");
 }
 
 plist_t getBuildidentityWithBoardconfig(plist_t buildManifest, const char *boardconfig){
