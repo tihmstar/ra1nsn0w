@@ -194,7 +194,13 @@ int main_r(int argc, const char * argv[]) {
         ipswUrl.insert(0, "file://");
     }else {
         printf("No IPSW specified, getting URL to ipsw by buildid\n");
-        bundle = libipatcher::getPwnBundleForDevice(model,buildid);
+        try {
+            bundle = libipatcher::getPwnBundleForDevice(model,buildid);
+        } catch (tihmstar::exception &e) {
+            printf("libipatcher::getPwnBundleForDevice failed with error:\n");
+            e.dump();
+            reterror("Failed to get firmware url. Please download ipsw and manually specify path");
+        }
         printf("Found build %s at %s\n",buildid,bundle.firmwareUrl.c_str());
         ipswUrl = bundle.firmwareUrl.c_str();
     }

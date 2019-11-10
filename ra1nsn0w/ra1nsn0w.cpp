@@ -172,7 +172,13 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
     retassure(buildnum, "failed to get buildnum");
     
     printf("Getting Firmware Keys...\n");
-    bundle = libipatcher::getPwnBundleForDevice(idev.getDeviceProductType(),buildnum);
+    try {
+        bundle = libipatcher::getPwnBundleForDevice(idev.getDeviceProductType(),buildnum);
+    } catch (tihmstar::exception &e) {
+        printf("libipatcher::getPwnBundleForDevice failed with error:\n");
+        e.dump();
+        reterror("Failed to get firmware keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
+    }
     
 #pragma mark get path for components
     retassure(!build_identity_get_component_path(buildidentity, "iBSS", &ibssPath), "Failed to get iBSS Path from BuildIdentity");
