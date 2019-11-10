@@ -85,7 +85,7 @@ iOSDevice::iOSDevice(uint64_t ecid) :
     elock.unlock();
     
     retassure(!irecv_open_with_ecid(&_cli, _ecid), "Failed to open connection to device");
-    
+    printf("Found device: %s\n",getDeviceProductType().c_str());
 }
 
 iOSDevice::~iOSDevice(){
