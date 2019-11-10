@@ -9,6 +9,7 @@
 #include <getopt.h>
 #include <libgeneral/macros.h>
 #include <libipatcher/libipatcher.hpp>
+#include <img4tool/img4tool.hpp>
 #include "ra1nsn0w.hpp"
 #include "iOSDevice.hpp"
 
@@ -80,17 +81,17 @@ void cmd_help(){
     printf("Multipurpose tool for launching custom bootchain\n\n");
     
     printf("Device selectors:\n");
-    printf("  -h, --helpt\t\tDisplays this helpscreen\n");
+    printf("  -h, --help\t\t\tDisplays this helpscreen\n");
     printf("  -t, --apticket PATH\t\tApticket use for bypassing sigchecks (Note: current sigcheck patches require an APTicket)\n");
     printf("  -B  --buildid BUILDID\t\tspecific buildid instead of iOS ipsw path\n");
     printf("  -e, --ecid ECID\t\tTarget specific device by its device ECID\n");
 
     printf("\nBehavior config:\n");
-    printf("     --nobootx\t\tDon't run \"bootx\" command\n");
+    printf("     --nobootx\t\t\tDon't run \"bootx\" command\n");
 
     printf("\niBEC patches:\n");
     printf("  -b, --boot-args ARGS\t\tSpecify kernel bootargs\n");
-    printf("      --cmdhandler NAME=VALUE\t\tPatch command NAME to jump to VALUE\n");
+    printf("      --cmdhandler NAME=VALUE\tPatch command NAME to jump to VALUE\n");
     printf("            (Example --cmdhandler go=0x41414141 makes go command jump to address 0x41414141)\n");
     printf("  -n, --nvram-unlock\t\tAllows reading and writing all nvram vars\n");
 
@@ -98,10 +99,11 @@ void cmd_help(){
 }
 
 int main_r(int argc, const char * argv[]) {
-    printf("Version: " VERSION_STRING "\n");
-    printf("%s\n",libipatcher::version().c_str());
+    printf("%s\n",VERSION_STRING);
+    printf("%s\n",img4tool::version());
     printf("%s\n",fragmentzip_version());
-    retassure(libipatcher::has64bitSupport(),"This tool needs libipatcher compiled with 64bit support!");
+    printf("%s\n",libipatcher::version().c_str());
+    retassure(libipatcher::has64bitSupport(), "This tool needs libipatcher compiled with 64bit support!");
     
     char *im4m = NULL;
     size_t im4mSize = 0;

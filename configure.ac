@@ -32,22 +32,21 @@ esac
 CXXFLAGS+=" -std=c++11"
 CFLAGS+=" -std=c11"
 
-PKG_CHECK_MODULES(libfragmentzip, "libfragmentzip >= 58")
-PKG_CHECK_MODULES(libgeneral, "libgeneral >= 26")
-PKG_CHECK_MODULES(libimg4tool, "libimg4tool >= 163")
-PKG_CHECK_MODULES(libipatcher, "libipatcher >= 65")
-PKG_CHECK_MODULES(libirecovery, "libirecovery >= 0.2.0")
-PKG_CHECK_MODULES(liboffsetfinder64, "liboffsetfinder64 >= 98")
-PKG_CHECK_MODULES(libplist, "libplist >= 2.0.0")
-PKG_CHECK_MODULES(libzip, "libzip >= 1.5.2")
+PKG_CHECK_MODULES(libfragmentzip, libfragmentzip >= 58)
+PKG_CHECK_MODULES(libgeneral, libgeneral >= 26)
+PKG_CHECK_MODULES(libimg4tool, libimg4tool >= 163)
+PKG_CHECK_MODULES(libipatcher, libipatcher >= 65)
+PKG_CHECK_MODULES(libirecovery, libirecovery >= 0.2.0)
+PKG_CHECK_MODULES(liboffsetfinder64, liboffsetfinder64 >= 98)
+PKG_CHECK_MODULES(libplist, libplist >= 2.0.0)
+PKG_CHECK_MODULES(libzip, libzip >= 1.5.2)
 
 
 
 
 
 AC_CONFIG_FILES([Makefile
-                 include/Makefile
-                 ra1nsn0w/Makefile)
+                 ra1nsn0w/Makefile])
 AC_OUTPUT
 
 echo "
