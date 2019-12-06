@@ -56,6 +56,8 @@ namespace ra1nsn0w{
 
         void sendCommand(std::string command);
         
+        int usbReceive(char *buffer, size_t size);
+        
 #pragma mark public static functions
         friend void irecv_event_cb(const irecv_device_event_t* event, void *userdata) noexcept;
     };

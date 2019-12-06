@@ -149,3 +149,12 @@ void iOSDevice::sendCommand(std::string command){
     retassure(_mode == iOSDevice::recovery, "sendCommand called, but device is not in recovery mode");
     retassure(!irecv_send_command(_cli, command.c_str()), "failed to send command");
 }
+
+int iOSDevice::usbReceive(char *buffer, size_t size){
+    int r;
+    int bytes;
+    irecv_usb_set_interface(_cli, 1, 1);
+    r = irecv_usb_bulk_transfer(_cli, 0x81, (unsigned char*) buffer, size, &bytes, 5000);
+    irecv_usb_set_interface(_cli, 0, 0);
+    return bytes;
+}

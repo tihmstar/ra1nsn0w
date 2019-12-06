@@ -18,11 +18,16 @@ namespace tihmstar {
         struct launchConfig{
             bool nobootx;
             bool nvramUnlock;
+            bool apticketdump;
             std::pair<std::string, uint64_t> cmdhandler;
             std::string bootargs;
         };
 
         void launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4tool::ASN1DERElement &im4m, const launchConfig &cfg = {});
+    
+    
+        void dumpAPTicket(iOSDevice &idev, const char* shshOutPath);
+    
     };
 };
 

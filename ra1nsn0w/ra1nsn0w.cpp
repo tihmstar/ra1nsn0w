@@ -11,6 +11,7 @@
 #include <plist/plist.h>
 #include <libipatcher/libipatcher.hpp>
 #include <liboffsetfinder64/ibootpatchfinder64.hpp>
+#include <liboffsetfinder64/kernelpatchfinder64.hpp>
 
 extern "C"{
 #include <libfragmentzip/libfragmentzip.h>
@@ -153,6 +154,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
     plist_t buildidentity = NULL;
     plist_t pBuildnum = NULL;
     libipatcher::pwnBundle bundle;
+    libipatcher::fw_key kernelKeys;
 
     
     printf("Opening firmware...\n");
@@ -176,6 +178,14 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
         bundle = libipatcher::getPwnBundleForDevice(idev.getDeviceProductType(),buildnum);
     } catch (tihmstar::exception &e) {
         printf("libipatcher::getPwnBundleForDevice failed with error:\n");
+        e.dump();
+        reterror("Failed to get firmware keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
+    }
+    
+    try {
+        kernelKeys = libipatcher::getFirmwareKey(idev.getDeviceProductType(),buildnum, "Kernelcache");
+    } catch (tihmstar::exception &e) {
+        printf("libipatcher::getFirmwareKey(\"Kernelcache\") failed with error:\n");
         e.dump();
         reterror("Failed to get firmware keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
     }
@@ -254,6 +264,19 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
             patches.insert(patches.end(), patch.begin(), patch.end());
         }
         
+        if (cfg.apticketdump) {
+            {
+                printf("iBEC: Adding memload_patch patch...\n");
+                auto patch = ibpf.get_memload_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+            {
+                printf("iBEC: Adding readback_loadaddr patch...\n");
+                auto patch = ibpf.get_readback_loadaddr_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+        }
+
         
         /* ---------- Applying collected patches ---------- */
         for (auto p : patches) {
@@ -279,10 +302,40 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
 
     
     printf("Patching kernel...\n");
-#warning TODO actual kernelpatching
-    img4tool::ASN1DERElement pkernel{kernelBuf,kernelBufSize};
-    pkernel = img4tool::renameIM4P(pkernel, "rkrn");
+    auto ppKernel = libipatcher::patchCustom(kernelBuf, kernelBufSize, kernelKeys, [&cfg](char *file, size_t size, void *param)->int{
+        std::vector<offsetfinder64::patch> patches;
+        
+        offsetfinder64::kernelpatchfinder64 kpf(file,size);
 
+        {
+            printf("Kernel: Adding MarijuanARM patch...\n");
+            auto patch = kpf.get_MarijuanARM_patch();
+            patches.insert(patches.end(), patch.begin(), patch.end());
+        }
+
+        /* ---------- Applying collected patches ---------- */
+        for (auto p : patches) {
+            offsetfinder64::offset_t off = (offsetfinder64::offset_t)((const char *)kpf.memoryForLoc(p._location) - file);
+            printf("kernel: Applying patch=%p : ",(void*)p._location);
+            for (int i=0; i<p._patchSize; i++) {
+                printf("%02x",((uint8_t*)p._patch)[i]);
+            }
+            printf("\n");
+            memcpy(&file[off], p._patch, p._patchSize);
+        }
+        printf("kernel: Patches applied!\n");
+        return 0;
+    }, NULL);
+    img4tool::ASN1DERElement pkernel{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
+    try {
+        pkernel = {ppKernel.first,ppKernel.second, true}; //transfer ownership of buffer to ASN1DERElement
+    } catch (tihmstar::exception &e) {
+        safeFree(ppKernel.first); //if transfer fails, free buffer
+        throw;
+    }
+    ppKernel = {};//if transfer succeeds, discard second copy of buffer
+    pkernel = img4tool::renameIM4P(pkernel, "rkrn");
+    
     
     printf("Patching DeviceTree...\n");
     img4tool::ASN1DERElement pdtre{dtreBuf,dtreBufSize};
@@ -311,21 +364,51 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
     
     idev.sendCommand("bgcolor 0 0 255");
     
-    printf("Sending DeviceTree...\n");
-    auto sdtre = img4FromIM4PandIM4M(pdtre,im4m);
-    idev.sendComponent(sdtre.buf(), sdtre.size());
-    idev.sendCommand("devicetree");
+    if (!cfg.apticketdump) {
+        printf("Sending DeviceTree...\n");
+        auto sdtre = img4FromIM4PandIM4M(pdtre,im4m);
+        idev.sendComponent(sdtre.buf(), sdtre.size());
+        idev.sendCommand("devicetree");
 
 
-    printf("Sending kernel...\n");
-    auto skernel = img4FromIM4PandIM4M(pkernel,im4m);
-    idev.sendComponent(skernel.buf(), skernel.size());
+        printf("Sending kernel...\n");
+        auto skernel = img4FromIM4PandIM4M(pkernel,im4m);
+        idev.sendComponent(skernel.buf(), skernel.size());
 
-    if (!cfg.nobootx) {
-        printf("Booting...\n");
-        idev.setCheckpoint();
-        idev.sendCommand("bootx");
-        idev.waitForDisconnect(5000);
+        if (!cfg.nobootx) {
+            printf("Booting...\n");
+            idev.setCheckpoint();
+            idev.sendCommand("bootx");
+            idev.waitForDisconnect(5000);
+        }
     }
+
     printf("Done!\n");
+}
+
+
+void ra1nsn0w::dumpAPTicket(iOSDevice &idev, const char* shshOutPath){
+    char *buffer = NULL;
+    cleanup([&]{
+        safeFree(buffer);
+    });
+    int ret = 0;
+    buffer = (char*)malloc(0x800000);
+    memset(buffer, 0, 0x800000);
+
+    idev.sendCommand("setenv filesize 0x0");
+    ret = idev.usbReceive(buffer, 0x800000);
+
+
+    memset(buffer, 0, 0x800000);
+    idev.sendCommand("setenv filesize 0x800000");
+    idev.sendCommand("memload");
+    ret = idev.usbReceive(buffer, 0x800000);
+
+    
+    
+    
+    
+
+    reterror("todo");
 }
