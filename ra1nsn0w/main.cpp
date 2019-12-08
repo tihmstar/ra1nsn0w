@@ -31,6 +31,7 @@ static struct option longopts[] = {
     { "cmdhandler",         required_argument,      NULL,  1  },
     { "nvram-unlock",       no_argument,            NULL, 'n' },
     { "kernel",             required_argument,      NULL, 'k' },
+    { "ramdisk",            required_argument,      NULL, 'r' },
     { "dump-apticket",      required_argument,      NULL,  2  },
     { NULL, 0, NULL, 0 }
 };
@@ -97,8 +98,9 @@ void cmd_help(){
     printf("            (Example --cmdhandler go=0x41414141 makes go command jump to address 0x41414141)\n");
     printf("  -n, --nvram-unlock\t\tAllows reading and writing all nvram vars\n");
 
-    printf("\nKernel patches:\n");
+    printf("\nCustomized boot:\n");
     printf("  -k, --kernel <path>\t\tManually specify a kernel.im4p to boot\n");
+    printf("  -r, --ramdisk <path>\t\tManually specify a ramdisk.im4p to boot\n");
 
     printf("\nTools:\n");
     printf("     --dump-apticket <path>\tDumps APTicket and writes shsh2 file to path\n");
@@ -139,7 +141,7 @@ int main_r(int argc, const char * argv[]) {
         return -1;
     }
     
-    while ((opt = getopt_long(argc, (char* const *)argv, "ht:B:e:b:nk:", longopts, &optindex)) > 0) {
+    while ((opt = getopt_long(argc, (char* const *)argv, "ht:B:e:b:nk:r:", longopts, &optindex)) > 0) {
         switch (opt) {
             case 't': // long option: "apticket"
                 apticketPath = optarg;
@@ -177,6 +179,9 @@ int main_r(int argc, const char * argv[]) {
                 break;
             case 'k':// long option: "kernel"
                 cfg.kernelIm4pPath = optarg;
+                break;
+            case 'r':// long option: "ramdisk"
+                cfg.ramdiskIm4pPath = optarg;
                 break;
             case 2:
                 shshDumpOutPath = optarg;

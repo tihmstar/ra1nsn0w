@@ -363,44 +363,74 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
     
     
 #pragma mark stich APTicket and send
-    
-    printf("Sending iBSS...\n");
-    auto siBSS = img4FromIM4PandIM4M(piBSS,im4m);
-    idev.setCheckpoint();
-    idev.sendComponent(siBSS.buf(), siBSS.size());
-    if (idev.getDeviceMode() == iOSDevice::recovery) {
+    if (idev.getDeviceMode() != iOSDevice::recovery) {
         //are we in pwn recovery already??
-        idev.sendCommand("go");
+        printf("Sending iBSS...\n");
+        auto siBSS = img4FromIM4PandIM4M(piBSS,im4m);
+        idev.setCheckpoint();
+        idev.sendComponent(siBSS.buf(), siBSS.size());
+        idev.waitForReconnect(10000);
     }
-    idev.waitForReconnect(10000);
 
     printf("Sending iBEC...\n");
     auto siBEC = img4FromIM4PandIM4M(piBEC,im4m);
     idev.setCheckpoint();
     idev.sendComponent(siBEC.buf(), siBEC.size());
+    if (idev.getDeviceMode() == iOSDevice::recovery) {
+        idev.sendCommand("go");
+    }
+
     idev.waitForReconnect(10000);
 
     retassure(idev.getDeviceMode() == iOSDevice::recovery, "Device failed to boot iBEC");
     
     idev.sendCommand("bgcolor 0 0 255");
     
-    if (!cfg.apticketdump) {
-        printf("Sending DeviceTree...\n");
-        auto sdtre = img4FromIM4PandIM4M(pdtre,im4m);
-        idev.sendComponent(sdtre.buf(), sdtre.size());
-        idev.sendCommand("devicetree");
+    if (cfg.apticketdump) {
+        printf("Option apticketdump detected, returning.\n");
+        return;
+    }
+    
+    printf("Sending DeviceTree...\n");
+    auto sdtre = img4FromIM4PandIM4M(pdtre,im4m);
+    idev.sendComponent(sdtre.buf(), sdtre.size());
+    idev.sendCommand("devicetree");
 
+    if (cfg.ramdiskIm4pPath) {
+        FILE *f = NULL;
+        char *im4p = NULL;
+        cleanup([&]{
+            safeFree(im4p);
+            safeFreeCustom(f, fclose);
+        });
+        size_t im4pSize = 0;
+        printf("Loading ramdisk at=%s\n",cfg.ramdiskIm4pPath);
+        
+        assure(f = fopen(cfg.ramdiskIm4pPath, "rb"));
+        fseek(f, 0, SEEK_END);
+        assure(im4pSize = ftell(f));
+        fseek(f, 0, SEEK_SET);
+        assure(im4p = (char*)malloc(im4pSize));
+        assure(fread(im4p, 1, im4pSize, f) == im4pSize);
+        
+        img4tool::ASN1DERElement pramdisk = img4tool::ASN1DERElement(im4p, im4pSize, true);
+        im4p = NULL;
+        
+        printf("Sending ramdisk...\n");
+        auto sramdisk = img4FromIM4PandIM4M(pramdisk,im4m);
+        idev.sendComponent(sramdisk.buf(), sramdisk.size());
+        idev.sendCommand("ramdisk");
+    }
 
-        printf("Sending kernel...\n");
-        auto skernel = img4FromIM4PandIM4M(pkernel,im4m);
-        idev.sendComponent(skernel.buf(), skernel.size());
+    printf("Sending kernel...\n");
+    auto skernel = img4FromIM4PandIM4M(pkernel,im4m);
+    idev.sendComponent(skernel.buf(), skernel.size());
 
-        if (!cfg.nobootx) {
-            printf("Booting...\n");
-            idev.setCheckpoint();
-            idev.sendCommand("bootx");
-            idev.waitForDisconnect(5000);
-        }
+    if (!cfg.nobootx) {
+        printf("Booting...\n");
+        idev.setCheckpoint();
+        idev.sendCommand("bootx");
+        idev.waitForDisconnect(5000);
     }
 
     printf("Done!\n");
