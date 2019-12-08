@@ -301,41 +301,61 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
     ppiBEC = {};//if transfer succeeds, discard second copy of buffer
 
     
-    printf("Patching kernel...\n");
-    auto ppKernel = libipatcher::patchCustom(kernelBuf, kernelBufSize, kernelKeys, [&cfg](char *file, size_t size, void *param)->int{
-        std::vector<offsetfinder64::patch> patches;
-        
-        offsetfinder64::kernelpatchfinder64 kpf(file,size);
-
-        {
-            printf("Kernel: Adding MarijuanARM patch...\n");
-            auto patch = kpf.get_MarijuanARM_patch();
-            patches.insert(patches.end(), patch.begin(), patch.end());
-        }
-
-        /* ---------- Applying collected patches ---------- */
-        for (auto p : patches) {
-            offsetfinder64::offset_t off = (offsetfinder64::offset_t)((const char *)kpf.memoryForLoc(p._location) - file);
-            printf("kernel: Applying patch=%p : ",(void*)p._location);
-            for (int i=0; i<p._patchSize; i++) {
-                printf("%02x",((uint8_t*)p._patch)[i]);
-            }
-            printf("\n");
-            memcpy(&file[off], p._patch, p._patchSize);
-        }
-        printf("kernel: Patches applied!\n");
-        return 0;
-    }, NULL);
     img4tool::ASN1DERElement pkernel{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
-    try {
-        pkernel = {ppKernel.first,ppKernel.second, true}; //transfer ownership of buffer to ASN1DERElement
-    } catch (tihmstar::exception &e) {
-        safeFree(ppKernel.first); //if transfer fails, free buffer
-        throw;
+    if (cfg.kernelIm4pPath) {
+        FILE *f = NULL;
+        char *kernelim4p = NULL;
+        cleanup([&]{
+            safeFree(kernelim4p);
+            safeFreeCustom(f, fclose);
+        });
+        size_t kernelim4pSize = 0;
+        printf("Loading kernelfile at=%s\n",cfg.kernelIm4pPath);
+        
+        assure(f = fopen(cfg.kernelIm4pPath, "rb"));
+        fseek(f, 0, SEEK_END);
+        assure(kernelim4pSize = ftell(f));
+        fseek(f, 0, SEEK_SET);
+        assure(kernelim4p = (char*)malloc(kernelim4pSize));
+        assure(fread(kernelim4p, 1, kernelim4pSize, f) == kernelim4pSize);
+        
+        pkernel = img4tool::ASN1DERElement(kernelim4p, kernelim4pSize, true);
+        kernelim4p = NULL;
+    }else{
+        printf("Patching kernel...\n");
+        auto ppKernel = libipatcher::patchCustom(kernelBuf, kernelBufSize, kernelKeys, [&cfg](char *file, size_t size, void *param)->int{
+            std::vector<offsetfinder64::patch> patches;
+            
+            offsetfinder64::kernelpatchfinder64 kpf(file,size);
+
+            {
+                printf("Kernel: Adding MarijuanARM patch...\n");
+                auto patch = kpf.get_MarijuanARM_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+
+            /* ---------- Applying collected patches ---------- */
+            for (auto p : patches) {
+                offsetfinder64::offset_t off = (offsetfinder64::offset_t)((const char *)kpf.memoryForLoc(p._location) - file);
+                printf("kernel: Applying patch=%p : ",(void*)p._location);
+                for (int i=0; i<p._patchSize; i++) {
+                    printf("%02x",((uint8_t*)p._patch)[i]);
+                }
+                printf("\n");
+                memcpy(&file[off], p._patch, p._patchSize);
+            }
+            printf("kernel: Patches applied!\n");
+            return 0;
+        }, NULL);
+        try {
+            pkernel = {ppKernel.first,ppKernel.second, true}; //transfer ownership of buffer to ASN1DERElement
+        } catch (tihmstar::exception &e) {
+            safeFree(ppKernel.first); //if transfer fails, free buffer
+            throw;
+        }
+        ppKernel = {};//if transfer succeeds, discard second copy of buffer
+        pkernel = img4tool::renameIM4P(pkernel, "rkrn");
     }
-    ppKernel = {};//if transfer succeeds, discard second copy of buffer
-    pkernel = img4tool::renameIM4P(pkernel, "rkrn");
-    
     
     printf("Patching DeviceTree...\n");
     img4tool::ASN1DERElement pdtre{dtreBuf,dtreBufSize};

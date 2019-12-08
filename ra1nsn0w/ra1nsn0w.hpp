@@ -21,6 +21,7 @@ namespace tihmstar {
             bool apticketdump;
             std::pair<std::string, uint64_t> cmdhandler;
             std::string bootargs;
+            const char *kernelIm4pPath;
         };
 
         void launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4tool::ASN1DERElement &im4m, const launchConfig &cfg = {});

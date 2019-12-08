@@ -30,6 +30,7 @@ static struct option longopts[] = {
     { "boot-args",          required_argument,      NULL, 'b' },
     { "cmdhandler",         required_argument,      NULL,  1  },
     { "nvram-unlock",       no_argument,            NULL, 'n' },
+    { "kernel",             required_argument,      NULL, 'k' },
     { "dump-apticket",      required_argument,      NULL,  2  },
     { NULL, 0, NULL, 0 }
 };
@@ -96,6 +97,9 @@ void cmd_help(){
     printf("            (Example --cmdhandler go=0x41414141 makes go command jump to address 0x41414141)\n");
     printf("  -n, --nvram-unlock\t\tAllows reading and writing all nvram vars\n");
 
+    printf("\nKernel patches:\n");
+    printf("  -k, --kernel <path>\t\tManually specify a kernel.im4p to boot\n");
+
     printf("\nTools:\n");
     printf("     --dump-apticket <path>\tDumps APTicket and writes shsh2 file to path\n");
 
@@ -135,7 +139,7 @@ int main_r(int argc, const char * argv[]) {
         return -1;
     }
     
-    while ((opt = getopt_long(argc, (char* const *)argv, "ht:B:e:b:n", longopts, &optindex)) > 0) {
+    while ((opt = getopt_long(argc, (char* const *)argv, "ht:B:e:b:nk:", longopts, &optindex)) > 0) {
         switch (opt) {
             case 't': // long option: "apticket"
                 apticketPath = optarg;
@@ -170,6 +174,9 @@ int main_r(int argc, const char * argv[]) {
                     cfg.cmdhandler.first = cfg.cmdhandler.first.substr(0,pos);
                     retassure(cfg.cmdhandler.second, "failed parsing cmdhandler. Can't jump to 0x0");
                 }
+                break;
+            case 'k':// long option: "kernel"
+                cfg.kernelIm4pPath = optarg;
                 break;
             case 2:
                 shshDumpOutPath = optarg;
