@@ -33,6 +33,7 @@ static struct option longopts[] = {
     { "kernel",             required_argument,      NULL, 'k' },
     { "ramdisk",            required_argument,      NULL, 'r' },
     { "dump-apticket",      required_argument,      NULL,  2  },
+    { "ra1nra1n",           required_argument,      NULL,  3  },
     { NULL, 0, NULL, 0 }
 };
 
@@ -97,6 +98,7 @@ void cmd_help(){
     printf("      --cmdhandler NAME=VALUE\tPatch command NAME to jump to VALUE\n");
     printf("            (Example --cmdhandler go=0x41414141 makes go command jump to address 0x41414141)\n");
     printf("  -n, --nvram-unlock\t\tAllows reading and writing all nvram vars\n");
+    printf("      --ra1nra1n <path>\n");
 
     printf("\nCustomized boot:\n");
     printf("  -k, --kernel <path>\t\tManually specify a kernel.im4p to boot\n");
@@ -166,6 +168,9 @@ int main_r(int argc, const char * argv[]) {
                 cfg.nobootx = true;
                 cfg.nvramUnlock = true;
                 break;
+            case 3:
+                cfg.ra1nra1nPath = optarg;
+                break;
             case 1: // long option: "cmdhandler"
                 {
                     cfg.cmdhandler.first = optarg;
@@ -233,7 +238,9 @@ int main_r(int argc, const char * argv[]) {
     
     if (bootargs) cfg.bootargs = bootargs;
 
-    if (shshDumpOutPath) {
+    if (cfg.ra1nra1nPath) {
+        printf("ra1nra1n option detected!\n");
+    }else if (shshDumpOutPath) {
         printf("apticketdump option detected! Discarding user options and loading predefined launch config.\n");
         cfg = {};
         cfg.apticketdump = true;

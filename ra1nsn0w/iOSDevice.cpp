@@ -150,6 +150,17 @@ void iOSDevice::sendCommand(std::string command){
     retassure(!irecv_send_command(_cli, command.c_str()), "failed to send command");
 }
 
+std::string iOSDevice::getEnv(std::string env){
+    char *val = NULL;
+    cleanup([&]{
+        safeFree(val);
+    });
+    retassure(_mode == iOSDevice::recovery, "sendCommand called, but device is not in recovery mode");
+    retassure(!irecv_getenv(_cli, env.c_str(),&val), "failed to getenv");
+    return val;
+}
+
+
 int iOSDevice::usbReceive(char *buffer, size_t size){
     int r;
     int bytes;

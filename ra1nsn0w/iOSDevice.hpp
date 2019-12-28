@@ -55,7 +55,8 @@ namespace ra1nsn0w{
         void waitForDisconnect(uint32_t timeoutMS);
 
         void sendCommand(std::string command);
-        
+        std::string getEnv(std::string env);
+
         int usbReceive(char *buffer, size_t size);
         
 #pragma mark public static functions

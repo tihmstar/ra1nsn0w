@@ -23,6 +23,7 @@ namespace tihmstar {
             std::string bootargs;
             const char *kernelIm4pPath;
             const char *ramdiskIm4pPath;
+            const char *ra1nra1nPath;
         };
 
         void launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4tool::ASN1DERElement &im4m, const launchConfig &cfg = {});

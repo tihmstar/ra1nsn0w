@@ -246,35 +246,51 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
             patches.insert(patches.end(), patch.begin(), patch.end());
         }
         
-        {
-            printf("iBEC: Adding boot-arg patch (%s) ...\n",cfg.bootargs.c_str());
-            auto patch = ibpf.get_boot_arg_patch(cfg.bootargs.c_str());
-            patches.insert(patches.end(), patch.begin(), patch.end());
-        }
-        
-        if (cfg.cmdhandler.first.size()) {
-            printf("iBEC: Adding cmdhandler patch (%s=0x%016llx) ...\n",cfg.cmdhandler.first.c_str(),cfg.cmdhandler.second);
-            auto patch = ibpf.get_cmd_handler_patch(cfg.cmdhandler.first.c_str(),cfg.cmdhandler.second);
-            patches.insert(patches.end(), patch.begin(), patch.end());
-        }
-        
-        if (cfg.nvramUnlock) {
-            printf("iBEC: Adding nvram_unlock patch...\n");
-            auto patch = ibpf.get_unlock_nvram_patch();
-            patches.insert(patches.end(), patch.begin(), patch.end());
-        }
-        
-        if (cfg.apticketdump) {
+        if (cfg.ra1nra1nPath){
             {
-                printf("iBEC: Adding memload_patch patch...\n");
-                auto patch = ibpf.get_memload_patch();
+                printf("iBEC: Adding memcpy patch...\n");
+                auto patch = ibpf.replace_bgcolor_with_memcpy();
                 patches.insert(patches.end(), patch.begin(), patch.end());
             }
+
             {
-                printf("iBEC: Adding readback_loadaddr patch...\n");
-                auto patch = ibpf.get_readback_loadaddr_patch();
+                printf("iBEC: Adding ra1nra1n patch...\n");
+                auto patch = ibpf.get_ra1nra1n_patch();
                 patches.insert(patches.end(), patch.begin(), patch.end());
             }
+
+        }else{
+            
+            {
+                printf("iBEC: Adding boot-arg patch (%s) ...\n",cfg.bootargs.c_str());
+                auto patch = ibpf.get_boot_arg_patch(cfg.bootargs.c_str());
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+            
+            if (cfg.cmdhandler.first.size()) {
+                printf("iBEC: Adding cmdhandler patch (%s=0x%016llx) ...\n",cfg.cmdhandler.first.c_str(),cfg.cmdhandler.second);
+                auto patch = ibpf.get_cmd_handler_patch(cfg.cmdhandler.first.c_str(),cfg.cmdhandler.second);
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+            
+            if (cfg.nvramUnlock) {
+                printf("iBEC: Adding nvram_unlock patch...\n");
+                auto patch = ibpf.get_unlock_nvram_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+            
+//            if (cfg.apticketdump) {
+//                {
+//                    printf("iBEC: Adding memload_patch patch...\n");
+//                    auto patch = ibpf.get_memload_patch();
+//                    patches.insert(patches.end(), patch.begin(), patch.end());
+//                }
+//                {
+//                    printf("iBEC: Adding readback_loadaddr patch...\n");
+//                    auto patch = ibpf.get_readback_loadaddr_patch();
+//                    patches.insert(patches.end(), patch.begin(), patch.end());
+//                }
+//            }
         }
 
         
@@ -328,11 +344,11 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
             
             offsetfinder64::kernelpatchfinder64 kpf(file,size);
 
-            {
-                printf("Kernel: Adding MarijuanARM patch...\n");
-                auto patch = kpf.get_MarijuanARM_patch();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
+//            {
+//                printf("Kernel: Adding MarijuanARM patch...\n");
+//                auto patch = kpf.get_MarijuanARM_patch();
+//                patches.insert(patches.end(), patch.begin(), patch.end());
+//            }
 
             /* ---------- Applying collected patches ---------- */
             for (auto p : patches) {
@@ -384,7 +400,9 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
 
     retassure(idev.getDeviceMode() == iOSDevice::recovery, "Device failed to boot iBEC");
     
-    idev.sendCommand("bgcolor 0 0 255");
+    if (!cfg.ra1nra1nPath) {
+        idev.sendCommand("bgcolor 0 0 255");
+    }
     
     if (cfg.apticketdump) {
         printf("Option apticketdump detected, returning.\n");
@@ -420,6 +438,35 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
         auto sramdisk = img4FromIM4PandIM4M(pramdisk,im4m);
         idev.sendComponent(sramdisk.buf(), sramdisk.size());
         idev.sendCommand("ramdisk");
+    }
+    
+    if (cfg.ra1nra1nPath) {
+        FILE *f = NULL;
+        char *im4p = NULL;
+        cleanup([&]{
+            safeFree(im4p);
+            safeFreeCustom(f, fclose);
+        });
+        size_t im4pSize = 0;
+        printf("Loading payload at=%s\n",cfg.ra1nra1nPath);
+        
+        assure(f = fopen(cfg.ra1nra1nPath, "rb"));
+        fseek(f, 0, SEEK_END);
+        assure(im4pSize = ftell(f));
+        fseek(f, 0, SEEK_SET);
+        assure(im4p = (char*)malloc(im4pSize));
+        assure(fread(im4p, 1, im4pSize, f) == im4pSize);
+                
+        printf("Sending payload...\n");
+
+        std::string loadAddr = idev.getEnv("loadaddr");
+        idev.sendComponent(im4p, im4pSize);
+
+        std::string memcpyCommand = "memcpy 0x828000000 ";
+        memcpyCommand += loadAddr;
+        memcpyCommand += " 0x800000";
+
+        idev.sendCommand(memcpyCommand);
     }
 
     printf("Sending kernel...\n");
