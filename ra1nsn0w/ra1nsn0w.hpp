@@ -16,6 +16,7 @@ namespace tihmstar {
     namespace ra1nsn0w{
     
         struct launchConfig{
+            bool doJailbreakPatches;
             bool nobootx;
             bool nvramUnlock;
             bool apticketdump;

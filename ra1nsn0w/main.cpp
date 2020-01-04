@@ -35,6 +35,7 @@ static struct option longopts[] = {
     { "ramdisk",            required_argument,      NULL, 'r' },
     { "dump-apticket",      required_argument,      NULL,  2  },
     { "ra1nra1n",           required_argument,      NULL,  3  },
+    { "sn0wsn0w",           no_argument,            NULL,  4  },
     { NULL, 0, NULL, 0 }
 };
 
@@ -99,7 +100,10 @@ void cmd_help(){
     printf("      --cmdhandler NAME=VALUE\tPatch command NAME to jump to VALUE\n");
     printf("            (Example --cmdhandler go=0x41414141 makes go command jump to address 0x41414141)\n");
     printf("  -n, --nvram-unlock\t\tAllows reading and writing all nvram vars\n");
-    printf("      --ra1nra1n <path>\n");
+
+    printf("\nKernel patches:\n");
+    printf("     --sn0wsn0w\tApply generic kernelpatches\n");
+
 
     printf("\nCustomized boot:\n");
     printf("  -k, --kernel <path>\t\tManually specify a kernel.im4p to boot\n");
@@ -107,6 +111,7 @@ void cmd_help(){
 
     printf("\nTools:\n");
     printf("     --dump-apticket <path>\tDumps APTicket and writes shsh2 file to path\n");
+    printf("     --ra1nra1n <path>\tExecute payload before jumping to kernel\n");
 
     printf("\n");
 }
@@ -124,6 +129,7 @@ int main_r(int argc, const char * argv[]) {
     cleanup([&]{
         safeFree(im4m);
     });
+    bool toolsIsSelected = false;
     launchConfig cfg = {};
 
     int optindex = 0;
@@ -136,7 +142,6 @@ int main_r(int argc, const char * argv[]) {
     const char *buildid = NULL;
     uint64_t ecid = 0;
 
-    const char *bootargs = NULL;
     const char *shshDumpOutPath = NULL;
     
     if (argc == 1){
@@ -160,7 +165,7 @@ int main_r(int argc, const char * argv[]) {
                 }
                 break;
             case 'b': // long option: "boot-args"
-                bootargs = optarg;
+                cfg.bootargs = optarg;
                 break;
             case 0: // long option: "nobootx"
                 cfg.nobootx = true;
@@ -170,7 +175,12 @@ int main_r(int argc, const char * argv[]) {
                 cfg.nvramUnlock = true;
                 break;
             case 3:
+                retassure(!toolsIsSelected, "only one tools option can be used at a time!");
+                toolsIsSelected = true;
                 cfg.ra1nra1nPath = optarg;
+                break;
+            case 4:
+                cfg.doJailbreakPatches = true;
                 break;
             case 1: // long option: "cmdhandler"
                 {
@@ -193,7 +203,8 @@ int main_r(int argc, const char * argv[]) {
                 shshDumpOutPath = optarg;
                 break;
                 
-            case 'h': // long option: "help" //intentionally fall through
+            case 'h': // long option: "help"
+                 //intentionally fall through
             default:
                 cmd_help();
                 return -1;
@@ -237,18 +248,22 @@ int main_r(int argc, const char * argv[]) {
         ipswUrl = bundle.firmwareUrl.c_str();
     }
     
-    if (bootargs) cfg.bootargs = bootargs;
-
-    if (cfg.ra1nra1nPath) {
-        printf("ra1nra1n option detected!\n");
-    }else if (shshDumpOutPath) {
-        printf("apticketdump option detected! Discarding user options and loading predefined launch config.\n");
-        cfg = {};
-        cfg.apticketdump = true;
-        cfg.nvramUnlock = true;
-        reterror("not implemented!");
+    if (toolsIsSelected) {
+        printf("tools selected!\n");
+        if (cfg.ra1nra1nPath) {
+            printf("ra1nra1n option detected! Discarding user options and loading predefined launch config.\n");
+            const char * tmp = cfg.ra1nra1nPath;
+            cfg = {};
+            cfg.ra1nra1nPath = tmp;
+        }else if (shshDumpOutPath) {
+            printf("apticketdump option detected! Discarding user options and loading predefined launch config.\n");
+            cfg = {};
+            cfg.apticketdump = true;
+            cfg.nvramUnlock = true;
+            reterror("not implemented!");
+        }
     }
-
+    
     
     launchDevice(device, ipswUrl, {im4m, im4mSize}, cfg);
     

@@ -343,13 +343,56 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
             std::vector<offsetfinder64::patch> patches;
             
             offsetfinder64::kernelpatchfinder64 kpf(file,size);
+            
+            if (cfg.doJailbreakPatches){
+                printf("Kernel: Adding MarijuanARM patch...\n");
+                auto patch = kpf.get_MarijuanARM_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+            
+            if (cfg.doJailbreakPatches){
+                printf("Kernel: Adding task_conversion_eval patch...\n");
+                auto patch = kpf.get_task_conversion_eval_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
 
-//            {
-//                printf("Kernel: Adding MarijuanARM patch...\n");
-//                auto patch = kpf.get_MarijuanARM_patch();
-//                patches.insert(patches.end(), patch.begin(), patch.end());
-//            }
+            if (cfg.doJailbreakPatches){
+                printf("Kernel: Adding vm_fault_internal patch...\n");
+                auto patch = kpf.get_vm_fault_internal_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+            
+            if (cfg.doJailbreakPatches){
+                printf("Kernel: Adding trustcache_true patch...\n");
+                auto patch = kpf.get_trustcache_true_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
 
+            if (cfg.doJailbreakPatches){
+                printf("Kernel: Adding mount patch...\n");
+                auto patch = kpf.get_mount_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+
+            if (cfg.doJailbreakPatches){
+                printf("Kernel: Adding tfp0 patch...\n");
+                auto patch = kpf.get_tfp0_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+            
+            if (cfg.doJailbreakPatches){
+                printf("Kernel: Adding amfi patch...\n");
+                auto patch = kpf.get_amfi_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+            
+            if (cfg.doJailbreakPatches){
+                printf("Kernel: Adding get_task_allow patch...\n");
+                auto patch = kpf.get_get_task_allow_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+
+            
             /* ---------- Applying collected patches ---------- */
             for (auto p : patches) {
                 offsetfinder64::offset_t off = (offsetfinder64::offset_t)((const char *)kpf.memoryForLoc(p._location) - file);
