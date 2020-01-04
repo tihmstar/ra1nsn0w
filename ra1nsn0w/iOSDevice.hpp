@@ -11,6 +11,7 @@
 
 #include <iostream>
 #include <mutex>
+#include <condition_variable>
 extern "C"{
 #include <libirecovery.h>
 };

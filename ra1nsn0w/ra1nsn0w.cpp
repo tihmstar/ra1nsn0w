@@ -396,7 +396,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
         idev.sendCommand("go");
     }
 
-    idev.waitForReconnect(10000);
+    idev.waitForReconnect(50000);
 
     retassure(idev.getDeviceMode() == iOSDevice::recovery, "Device failed to boot iBEC");
     

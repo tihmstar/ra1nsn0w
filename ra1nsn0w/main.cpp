@@ -12,6 +12,7 @@
 #include <img4tool/img4tool.hpp>
 #include "ra1nsn0w.hpp"
 #include "iOSDevice.hpp"
+#include <string.h>
 
 extern "C"{
 #include <libfragmentzip/libfragmentzip.h>

@@ -39,7 +39,7 @@ PKG_CHECK_MODULES(libipatcher, libipatcher >= 69)
 PKG_CHECK_MODULES(libirecovery, libirecovery >= 0.2.0)
 PKG_CHECK_MODULES(liboffsetfinder64, liboffsetfinder64 >= 114)
 PKG_CHECK_MODULES(libplist, libplist >= 2.0.0)
-PKG_CHECK_MODULES(libzip, libzip >= 1.5.2)
+PKG_CHECK_MODULES(libzip, libzip >= 1.5.1)
 
 
 
