@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		87974BF723783D1D00DC1599 /* liboffsetfinder64.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87974BF623783D1D00DC1599 /* liboffsetfinder64.0.dylib */; };
-		87974BF823783D1D00DC1599 /* liboffsetfinder64.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87974BF623783D1D00DC1599 /* liboffsetfinder64.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		8791271224D098180071283F /* liboffsetfinder64.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87974BF623783D1D00DC1599 /* liboffsetfinder64.0.dylib */; };
+		8791271324D098180071283F /* liboffsetfinder64.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87974BF623783D1D00DC1599 /* liboffsetfinder64.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		87EBA7122376F32A00AB878C /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA7112376F32A00AB878C /* main.cpp */; };
 		87EBA71A2376F39400AB878C /* libgeneral.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA7192376F39400AB878C /* libgeneral.0.dylib */; };
 		87EBA71B2376F39400AB878C /* libgeneral.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA7192376F39400AB878C /* libgeneral.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -45,7 +45,7 @@
 			dstSubfolderSpec = 10;
 			files = (
 				87EBA7252376FC0400AB878C /* libplist.3.dylib in Embed Libraries */,
-				87974BF823783D1D00DC1599 /* liboffsetfinder64.0.dylib in Embed Libraries */,
+				8791271324D098180071283F /* liboffsetfinder64.0.dylib in Embed Libraries */,
 				87EBA73F2377362600AB878C /* libimg4tool.0.dylib in Embed Libraries */,
 				87EBA72D2376FC4A00AB878C /* libzip.5.0.dylib in Embed Libraries */,
 				87EBA73C23772B9900AB878C /* libfragmentzip.0.dylib in Embed Libraries */,
@@ -84,7 +84,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				87EBA7242376FC0400AB878C /* libplist.3.dylib in Frameworks */,
-				87974BF723783D1D00DC1599 /* liboffsetfinder64.0.dylib in Frameworks */,
+				8791271224D098180071283F /* liboffsetfinder64.0.dylib in Frameworks */,
 				87EBA73E2377362600AB878C /* libimg4tool.0.dylib in Frameworks */,
 				87EBA72C2376FC4A00AB878C /* libzip.5.0.dylib in Frameworks */,
 				87EBA73B23772B9900AB878C /* libfragmentzip.0.dylib in Frameworks */,
@@ -324,16 +324,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				HEADER_SEARCH_PATHS = (
-					/usr/local/include,
-					/usr/local/Cellar/openssl/1.0.2t/lib,
-				);
-				LIBRARY_SEARCH_PATHS = (
-					/usr/local/lib,
-					/usr/local/Cellar/cryptopp/8.1.0/lib,
-					/usr/local/Cellar/libzip/1.5.2/lib,
-					/usr/local/Cellar/openssl/1.0.2t/lib,
-				);
+				HEADER_SEARCH_PATHS = /usr/local/include;
+				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -342,16 +334,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				HEADER_SEARCH_PATHS = (
-					/usr/local/include,
-					/usr/local/Cellar/openssl/1.0.2t/lib,
-				);
-				LIBRARY_SEARCH_PATHS = (
-					/usr/local/lib,
-					/usr/local/Cellar/cryptopp/8.1.0/lib,
-					/usr/local/Cellar/libzip/1.5.2/lib,
-					/usr/local/Cellar/openssl/1.0.2t/lib,
-				);
+				HEADER_SEARCH_PATHS = /usr/local/include;
+				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

@@ -22,6 +22,13 @@ using namespace tihmstar;
 using namespace tihmstar::ra1nsn0w;
 
 
+struct bootconfig{
+    const launchConfig *launchcfg;
+    bool didProcessKernelLoader;
+    bool skipiBEC;
+    uint32_t curPatchComponent;
+};
+
 #pragma mark helpers
 
 
@@ -116,7 +123,95 @@ img4tool::ASN1DERElement img4FromIM4PandIM4M(const img4tool::ASN1DERElement &im4
     return img4;
 }
 
+
+int iBootPatchFunc(char *file, size_t size, void *param){
+    bootconfig *bcfg = (bootconfig *)param;
+    const launchConfig *cfg = bcfg->launchcfg;
+    
+    std::vector<offsetfinder64::patch> patches;
+    offsetfinder64::ibootpatchfinder64 *ibpf = offsetfinder64::ibootpatchfinder64::make_ibootpatchfinder64(file,size);
+    cleanup([&]{
+        if (ibpf){
+            delete ibpf;
+        }
+    });
+    
+    {
+        printf("iBoot: Adding sigcheck patch...\n");
+        auto patch = ibpf->get_sigcheck_patch();
+        patches.insert(patches.end(), patch.begin(), patch.end());
+    }
+    
+    {
+        printf("iBoot: Adding debug_enable patch...\n");
+        auto patch = ibpf->get_debug_enabled_patch();
+        patches.insert(patches.end(), patch.begin(), patch.end());
+    }
+    
+    if (ibpf->has_recovery_console()) {
+        bcfg->didProcessKernelLoader = true;
+        if (cfg->ra1nra1nPath){
+            {
+                printf("iBoot: Adding memcpy patch...\n");
+                auto patch = ibpf->replace_bgcolor_with_memcpy();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+
+            {
+                printf("iBoot: Adding ra1nra1n patch...\n");
+                auto patch = ibpf->get_ra1nra1n_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+        }else{
+            {
+                printf("iBoot: Adding boot-arg patch (%s) ...\n",cfg->bootargs.c_str());
+                auto patch = ibpf->get_boot_arg_patch(cfg->bootargs.c_str());
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+            
+            if (cfg->cmdhandler.first.size()) {
+                printf("iBoot: Adding cmdhandler patch (%s=0x%016llx) ...\n",cfg->cmdhandler.first.c_str(),cfg->cmdhandler.second);
+                auto patch = ibpf->get_cmd_handler_patch(cfg->cmdhandler.first.c_str(),cfg->cmdhandler.second);
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+            
+            if (cfg->nvramUnlock) {
+                printf("iBoot: Adding nvram_unlock patch...\n");
+                auto patch = ibpf->get_unlock_nvram_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+        }
+        
+    }
+    
+    
+    try {
+        auto userpatches = cfg->userPatches.at(bcfg->curPatchComponent); //check if we have custom user patches for this component
+        patches.insert(patches.end(), userpatches.begin(), userpatches.end());
+        printf("Inserted custom userpatches for current component!\n");
+    } catch (...) {
+        //
+    }
+    
+    
+
+    
+    /* ---------- Applying collected patches ---------- */
+    for (auto p : patches) {
+        offsetfinder64::offset_t off = (offsetfinder64::offset_t)(p._location - ibpf->find_base());
+        printf("iBoot: Applying patch=%p : ",(void*)p._location);
+        for (int i=0; i<p._patchSize; i++) {
+            printf("%02x",((uint8_t*)p._patch)[i]);
+        }
+        printf("\n");
+        memcpy(&file[off], p._patch, p._patchSize);
+    }
+    printf("iBoot: Patches applied!\n");
+    return 0;
+}
+
 void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4tool::ASN1DERElement &im4m, const launchConfig &cfg){
+    bootconfig bootcfg = {&cfg};
     fragmentzip_t *fzinfo = NULL;
     char *buildmanifestBuf = NULL;
     size_t buildmanifestBufSize = 0;
@@ -126,12 +221,14 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
     char *ibecPath = NULL;
     char *kernelPath = NULL;
     char *dtrePath = NULL;
+    char *trstPath = NULL;
 
     char *ibssBuf = NULL;   size_t ibssBufSize = 0;
     char *ibecBuf = NULL;   size_t ibecBufSize = 0;
     char *kernelBuf = NULL; size_t kernelBufSize = 0;
     char *dtreBuf = NULL;   size_t dtreBufSize = 0;
-    
+    char *trstBuf = NULL;   size_t trstBufSize = 0;
+
     char *buildnum = NULL;
 
     cleanup([&]{
@@ -155,6 +252,13 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
     plist_t pBuildnum = NULL;
     libipatcher::pwnBundle bundle;
     libipatcher::fw_key kernelKeys;
+
+    img4tool::ASN1DERElement piBSS{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
+    img4tool::ASN1DERElement piBEC{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
+
+    img4tool::ASN1DERElement pkernel{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
+    img4tool::ASN1DERElement pdtre{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
+    img4tool::ASN1DERElement ptrst{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
 
     
     printf("Opening firmware...\n");
@@ -202,6 +306,10 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
 
     retassure(!build_identity_get_component_path(buildidentity, "DeviceTree", &dtrePath), "Failed to get DeviceTree Path from BuildIdentity");
     printf("Found DeviceTree at %s\n",dtrePath);
+
+    if (!build_identity_get_component_path(buildidentity, "StaticTrustCache", &trstPath)){
+        printf("Found StaticTrustCache at %s\n",trstPath);
+    }
     
 #pragma mark load components
     printf("Loading iBSS...\n");
@@ -216,11 +324,15 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
     printf("Loading DeviceTree...\n");
     retassure(!fragmentzip_download_to_memory(fzinfo, dtrePath, &dtreBuf, &dtreBufSize, fragmentzip_callback),"Failed to load DeviceTree");
 
+    if (trstPath) {
+        printf("Loading StaticTrustCache...\n");
+        retassure(!fragmentzip_download_to_memory(fzinfo, trstPath, &trstBuf, &trstBufSize, fragmentzip_callback),"Failed to load StaticTrustCache");
+    }
 
 #pragma mark patch components
     printf("Patching iBSS...\n");
-    auto ppiBSS = libipatcher::patchiBSS(ibssBuf, ibssBufSize, bundle.iBSSKey);
-    img4tool::ASN1DERElement piBSS{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
+    bootcfg.curPatchComponent = 'ssbi'; //ibss
+    auto ppiBSS = libipatcher::patchCustom(ibssBuf, ibssBufSize, bundle.iBSSKey, iBootPatchFunc, (void*)&bootcfg);
     try {
         piBSS = {ppiBSS.first,ppiBSS.second, true}; //transfer ownership of buffer to ASN1DERElement
     } catch (tihmstar::exception &e) {
@@ -229,95 +341,23 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
     }
     ppiBSS = {};//if transfer succeeds, discard second copy of buffer
     
-    printf("Patching iBEC...\n");
-    auto ppiBEC = libipatcher::patchCustom(ibecBuf, ibecBufSize, bundle.iBECKey, [&cfg](char *file, size_t size, void *param)->int{
-        std::vector<offsetfinder64::patch> patches;
-        offsetfinder64::ibootpatchfinder64 ibpf(file,size);
-
-        {
-            printf("iBEC: Adding sigcheck patch...\n");
-            auto patch = ibpf.get_sigcheck_patch();
-            patches.insert(patches.end(), patch.begin(), patch.end());
+    if (bootcfg.didProcessKernelLoader) {
+        printf("iBSS can already load kernel, skipping iBEC...\n");
+        bootcfg.skipiBEC = true;
+    }else{
+        printf("Patching iBEC...\n");
+        bootcfg.curPatchComponent = 'cebi'; //ibec
+        auto ppiBEC = libipatcher::patchCustom(ibecBuf, ibecBufSize, bundle.iBECKey, iBootPatchFunc, (void*)&bootcfg);
+        try {
+            piBEC = {ppiBEC.first,ppiBEC.second, true}; //transfer ownership of buffer to ASN1DERElement
+        } catch (tihmstar::exception &e) {
+            safeFree(ppiBEC.first); //if transfer fails, free buffer
+            throw;
         }
-        
-        {
-            printf("iBEC: Adding debug_enable patch...\n");
-            auto patch = ibpf.get_debug_enabled_patch();
-            patches.insert(patches.end(), patch.begin(), patch.end());
-        }
-        
-        if (cfg.ra1nra1nPath){
-            {
-                printf("iBEC: Adding memcpy patch...\n");
-                auto patch = ibpf.replace_bgcolor_with_memcpy();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-
-            {
-                printf("iBEC: Adding ra1nra1n patch...\n");
-                auto patch = ibpf.get_ra1nra1n_patch();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-
-        }else{
-            
-            {
-                printf("iBEC: Adding boot-arg patch (%s) ...\n",cfg.bootargs.c_str());
-                auto patch = ibpf.get_boot_arg_patch(cfg.bootargs.c_str());
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-            
-            if (cfg.cmdhandler.first.size()) {
-                printf("iBEC: Adding cmdhandler patch (%s=0x%016llx) ...\n",cfg.cmdhandler.first.c_str(),cfg.cmdhandler.second);
-                auto patch = ibpf.get_cmd_handler_patch(cfg.cmdhandler.first.c_str(),cfg.cmdhandler.second);
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-            
-            if (cfg.nvramUnlock) {
-                printf("iBEC: Adding nvram_unlock patch...\n");
-                auto patch = ibpf.get_unlock_nvram_patch();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-            
-//            if (cfg.apticketdump) {
-//                {
-//                    printf("iBEC: Adding memload_patch patch...\n");
-//                    auto patch = ibpf.get_memload_patch();
-//                    patches.insert(patches.end(), patch.begin(), patch.end());
-//                }
-//                {
-//                    printf("iBEC: Adding readback_loadaddr patch...\n");
-//                    auto patch = ibpf.get_readback_loadaddr_patch();
-//                    patches.insert(patches.end(), patch.begin(), patch.end());
-//                }
-//            }
-        }
-
-        
-        /* ---------- Applying collected patches ---------- */
-        for (auto p : patches) {
-            offsetfinder64::offset_t off = (offsetfinder64::offset_t)(p._location - ibpf.find_base());
-            printf("iBEC: Applying patch=%p : ",(void*)p._location);
-            for (int i=0; i<p._patchSize; i++) {
-                printf("%02x",((uint8_t*)p._patch)[i]);
-            }
-            printf("\n");
-            memcpy(&file[off], p._patch, p._patchSize);
-        }
-        printf("iBEC: Patches applied!\n");
-        return 0;
-    }, NULL);
-    img4tool::ASN1DERElement piBEC{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
-    try {
-        piBEC = {ppiBEC.first,ppiBEC.second, true}; //transfer ownership of buffer to ASN1DERElement
-    } catch (tihmstar::exception &e) {
-        safeFree(ppiBEC.first); //if transfer fails, free buffer
-        throw;
+        ppiBEC = {};//if transfer succeeds, discard second copy of buffer
     }
-    ppiBEC = {};//if transfer succeeds, discard second copy of buffer
 
     
-    img4tool::ASN1DERElement pkernel{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
     if (cfg.kernelIm4pPath) {
         FILE *f = NULL;
         char *kernelim4p = NULL;
@@ -339,6 +379,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
         kernelim4p = NULL;
     }else{
         printf("Patching kernel...\n");
+        bootcfg.curPatchComponent = 'nrkr'; //rkrn (restore kernel)
         auto ppKernel = libipatcher::patchCustom(kernelBuf, kernelBufSize, kernelKeys, [&cfg](char *file, size_t size, void *param)->int{
             std::vector<offsetfinder64::patch> patches;
             
@@ -392,6 +433,12 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
                 patches.insert(patches.end(), patch.begin(), patch.end());
             }
 
+            if (cfg.doJailbreakPatches){
+                printf("Kernel: Adding apfs_snapshot patch...\n");
+                auto patch = kpf.get_apfs_snapshot_patch();
+                patches.insert(patches.end(), patch.begin(), patch.end());
+            }
+
             
             /* ---------- Applying collected patches ---------- */
             for (auto p : patches) {
@@ -417,9 +464,14 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
     }
     
     printf("Patching DeviceTree...\n");
-    img4tool::ASN1DERElement pdtre{dtreBuf,dtreBufSize};
+    pdtre = {dtreBuf,dtreBufSize};
     pdtre = img4tool::renameIM4P(pdtre, "rdtr");
     
+    if (trstBuf && trstBufSize) {
+        printf("Patching StaticTrustCache...\n");
+        ptrst = {trstBuf,trstBufSize};
+        ptrst = img4tool::renameIM4P(ptrst, "rtsc");
+    }
     
 #pragma mark stich APTicket and send
     if (idev.getDeviceMode() != iOSDevice::recovery) {
@@ -428,20 +480,41 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
         auto siBSS = img4FromIM4PandIM4M(piBSS,im4m);
         idev.setCheckpoint();
         idev.sendComponent(siBSS.buf(), siBSS.size());
-        idev.waitForReconnect(10000);
+    }else if (bootcfg.skipiBEC){
+        /*
+         we are already in (pwn???) recovery, but this device has only 1 stage bootloader
+         in order to reboot to iBSS we actually need to rename the image to iBEC
+         */
+        printf("Renaming iBSS to iBEC...\n");
+        piBEC = img4tool::renameIM4P(piBSS, "ibec");
+        auto siBEC = img4FromIM4PandIM4M(piBEC,im4m);
+        idev.setCheckpoint();
+        idev.sendComponent(siBEC.buf(), siBEC.size());
+        if (idev.getDeviceMode() == iOSDevice::recovery) {
+            idev.sendCommand("go");
+        }
     }
-
-    printf("Sending iBEC...\n");
-    auto siBEC = img4FromIM4PandIM4M(piBEC,im4m);
-    idev.setCheckpoint();
-    idev.sendComponent(siBEC.buf(), siBEC.size());
-    if (idev.getDeviceMode() == iOSDevice::recovery) {
-        idev.sendCommand("go");
+    
+    if (!bootcfg.skipiBEC) {
+        idev.waitForReconnect(10000);
+        printf("Sending iBEC...\n");
+        auto siBEC = img4FromIM4PandIM4M(piBEC,im4m);
+        idev.setCheckpoint();
+        idev.sendComponent(siBEC.buf(), siBEC.size());
+        if (idev.getDeviceMode() == iOSDevice::recovery) {
+            idev.sendCommand("go");
+        }
     }
 
     idev.waitForReconnect(50000);
+    
+    retassure(idev.getDeviceMode() == iOSDevice::recovery, "Device failed to boot iBoot");
 
-    retassure(idev.getDeviceMode() == iOSDevice::recovery, "Device failed to boot iBEC");
+    if (bootcfg.launchcfg->justiBoot) {
+        printf("iBoot reached, returning.\n");
+        return;
+    }
+
     
     if (!cfg.ra1nra1nPath) {
         idev.sendCommand("bgcolor 0 0 255");
@@ -450,6 +523,13 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
     if (cfg.apticketdump) {
         printf("Option apticketdump detected, returning.\n");
         return;
+    }
+    
+    if (ptrst.size()) {
+        printf("Sending StaticTrustCache...\n");
+        auto strst = img4FromIM4PandIM4M(ptrst,im4m);
+        idev.sendComponent(strst.buf(), strst.size());
+        idev.sendCommand("firmware");
     }
     
     printf("Sending DeviceTree...\n");
