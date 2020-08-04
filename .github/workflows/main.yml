@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     env:
       BUILDROOT: "buildroot_${{ matrix.platform }}"
-      GIT_DEPENDENCIES: tihmstar/libgeneral,tihmstar/img4tool,tihmstar/liboffsetfinder64,tihmstar/libirecovery,tihmstar/libfragmentzip,tihmstar/libipatcher
+      GIT_DEPENDENCIES: tihmstar/libgeneral,tihmstar/img4tool,tihmstar/libinsn,tihmstar/liboffsetfinder64,tihmstar/libirecovery,tihmstar/libfragmentzip,tihmstar/libipatcher
       MAC_DYNAMIC_LIBS: openssl,libplist,libpng
 
     steps:
