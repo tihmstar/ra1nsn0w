@@ -32,13 +32,13 @@ esac
 CXXFLAGS+=" -std=c++11"
 CFLAGS+=" -std=c11"
 
-PKG_CHECK_MODULES(libfragmentzip, libfragmentzip >= 58)
-PKG_CHECK_MODULES(libgeneral, libgeneral >= 26)
-PKG_CHECK_MODULES(libimg4tool, libimg4tool >= 174)
-PKG_CHECK_MODULES(libipatcher, libipatcher >= 69)
+PKG_CHECK_MODULES(libfragmentzip, libfragmentzip >= 60)
+PKG_CHECK_MODULES(libgeneral, libgeneral >= 32)
+PKG_CHECK_MODULES(libimg4tool, libimg4tool >= 190)
+PKG_CHECK_MODULES(libipatcher, libipatcher >= 77)
 PKG_CHECK_MODULES(libirecovery, libirecovery >= 0.2.0)
-PKG_CHECK_MODULES(liboffsetfinder64, liboffsetfinder64 >= 118)
-PKG_CHECK_MODULES(libplist, libplist >= 2.0.0)
+PKG_CHECK_MODULES(liboffsetfinder64, liboffsetfinder64 >= 120)
+PKG_CHECK_MODULES(libplist, libplist-2.0 >= 2.2.0)
 PKG_CHECK_MODULES(libzip, libzip >= 1.5.1)
 
 
