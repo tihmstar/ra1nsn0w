@@ -151,7 +151,7 @@ void cmd_help(){
 
     printf("\nBehavior config:\n");
     printf("     --nobootx\t\t\tDon't run \"bootx\" command\n");
-    printf("     --just-iboot\t\t\tOnly boot to iBoot, do not send anything to it\n");
+    printf("     --just-iboot\t\tOnly boot to iBoot, do not send anything to it\n");
 
     printf("\niBEC patches:\n");
     printf("  -b, --boot-args ARGS\t\tSpecify kernel bootargs\n");
@@ -170,7 +170,7 @@ void cmd_help(){
     
     printf("\nTools:\n");
     printf("     --dump-apticket <path>\tDumps APTicket and writes shsh2 file to path\n");
-    printf("     --ra1nra1n <path>\tExecute payload before jumping to kernel\n");
+    printf("     --ra1nra1n <path>\t\tExecute payload before jumping to kernel\n");
 
     printf("\n");
 }
@@ -179,7 +179,7 @@ int main_r(int argc, const char * argv[]) {
     printf("%s\n",VERSION_STRING);
     printf("%s\n",img4tool::version());
     printf("%s\n",fragmentzip_version());
-    printf("%s\n",libipatcher::version().c_str());
+    printf("%s\n",libipatcher::version());
     retassure(libipatcher::has64bitSupport(), "This tool needs libipatcher compiled with 64bit support!");
     printf("\n");
     
