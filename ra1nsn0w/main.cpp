@@ -245,13 +245,15 @@ int main_r(int argc, const char * argv[]) {
                 break;
             case 1: // long option: "cmdhandler"
                 {
-                    cfg.cmdhandler.first = optarg;
-                    auto pos = cfg.cmdhandler.first.find("=");
+                    std::pair<std::string, uint64_t> lhandler;
+                    lhandler.first = optarg;
+                    auto pos = lhandler.first.find("=");
                     retassure(pos != std::string::npos, "failed parsing cmdhandler no '=' found. Expected format: name=value (go=0x41414141)");
-                    retassure(cfg.cmdhandler.first.substr(pos+1,2) == "0x",  "failed parsing cmdhandler no '0x' found. Expected format: name=value (go=0x41414141)");
-                    cfg.cmdhandler.second = strtoul_l(cfg.cmdhandler.first.substr(pos+1+2).c_str(), NULL, 16, LC_GLOBAL_LOCALE);
-                    cfg.cmdhandler.first = cfg.cmdhandler.first.substr(0,pos);
-                    retassure(cfg.cmdhandler.second, "failed parsing cmdhandler. Can't jump to 0x0");
+                    retassure(lhandler.first.substr(pos+1,2) == "0x",  "failed parsing cmdhandler no '0x' found. Expected format: name=value (go=0x41414141)");
+                    lhandler.second = strtoul_l(lhandler.first.substr(pos+1+2).c_str(), NULL, 16, LC_GLOBAL_LOCALE);
+                    lhandler.first = lhandler.first.substr(0,pos);
+                    retassure(lhandler.second, "failed parsing cmdhandler. Can't jump to 0x0");
+                    cfg.cmdhandler.push_back(lhandler);
                 }
                 break;
             case 'k':// long option: "kernel"

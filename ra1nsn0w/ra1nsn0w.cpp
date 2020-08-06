@@ -176,10 +176,12 @@ int iBootPatchFunc(char *file, size_t size, void *param){
                 patches.insert(patches.end(), patch.begin(), patch.end());
             }
             
-            if (cfg->cmdhandler.first.size()) {
-                printf("iBoot: Adding cmdhandler patch (%s=0x%016llx) ...\n",cfg->cmdhandler.first.c_str(),cfg->cmdhandler.second);
-                auto patch = ibpf->get_cmd_handler_patch(cfg->cmdhandler.first.c_str(),cfg->cmdhandler.second);
-                patches.insert(patches.end(), patch.begin(), patch.end());
+            if (cfg->cmdhandler.size()){
+                for (auto handler : cfg->cmdhandler) {
+                    printf("iBoot: Adding cmdhandler patch (%s=0x%016llx) ...\n",handler.first.c_str(),handler.second);
+                    auto patch = ibpf->get_cmd_handler_patch(handler.first.c_str(),handler.second);
+                    patches.insert(patches.end(), patch.begin(), patch.end());
+                }
             }
             
             if (cfg->nvramUnlock) {
