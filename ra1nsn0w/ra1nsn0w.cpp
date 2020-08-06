@@ -148,6 +148,13 @@ int iBootPatchFunc(char *file, size_t size, void *param){
         patches.insert(patches.end(), patch.begin(), patch.end());
     }
     
+    if (cfg->disableiBootWXN) {
+        printf("iBoot: Adding disable wxn patch...\n");
+        auto patch = ibpf->get_disable_wxn_patch();
+        patches.insert(patches.end(), patch.begin(), patch.end());
+    }
+    
+    
     if (ibpf->has_recovery_console()) {
         bcfg->didProcessKernelLoader = true;
         if (cfg->ra1nra1nPath){

@@ -23,6 +23,7 @@ namespace tihmstar {
             bool nvramUnlock;
             bool apticketdump;
             bool justiBoot;
+            bool disableiBootWXN;
             std::pair<std::string, uint64_t> cmdhandler;
             std::string bootargs;
             const char *kernelIm4pPath;
