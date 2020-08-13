@@ -26,22 +26,22 @@ using namespace tihmstar;
 using namespace tihmstar::ra1nsn0w;
 
 static struct option longopts[] = {
-    { "help",               no_argument,            NULL, 'h' },
-    { "apticket",           required_argument,      NULL, 't' },
-    { "buildid",            required_argument,      NULL, 'B' },
-    { "udid",               required_argument,      NULL, 'u' },
-    { "nobootx",            no_argument,            NULL,  0  },
-    { "boot-args",          required_argument,      NULL, 'b' },
-    { "cmdhandler",         required_argument,      NULL,  1  },
-    { "nvram-unlock",       no_argument,            NULL, 'n' },
-    { "kernel",             required_argument,      NULL, 'k' },
-    { "ramdisk",            required_argument,      NULL, 'r' },
-    { "dump-apticket",      required_argument,      NULL,  2  },
-    { "ra1nra1n",           required_argument,      NULL,  3  },
-    { "sn0wsn0w",           no_argument,            NULL,  4  },
-    { "patch",              required_argument,      NULL,  5  },
-    { "just-iboot",         no_argument,            NULL,  6  },
-    { "disable-wnx",        no_argument,            NULL,  7  },
+    { "help",                   no_argument,            NULL, 'h' },
+    { "apticket",               required_argument,      NULL, 't' },
+    { "buildid",                required_argument,      NULL, 'B' },
+    { "udid",                   required_argument,      NULL, 'u' },
+    { "nobootx",                no_argument,            NULL,  0  },
+    { "boot-args",              required_argument,      NULL, 'b' },
+    { "cmdhandler",             required_argument,      NULL,  1  },
+    { "nvram-unlock",           no_argument,            NULL, 'n' },
+    { "kernel",                 required_argument,      NULL, 'k' },
+    { "ramdisk",                required_argument,      NULL, 'r' },
+    { "dump-apticket",          required_argument,      NULL,  2  },
+    { "ra1nra1n",               required_argument,      NULL,  3  },
+    { "sn0wsn0w",               no_argument,            NULL,  4  },
+    { "patch",                  required_argument,      NULL,  5  },
+    { "just-iboot",             no_argument,            NULL,  6  },
+    { "add-rw-and-rx-mappings", no_argument,            NULL,  7  },
     { NULL, 0, NULL, 0 }
 };
 
@@ -159,7 +159,7 @@ void cmd_help(){
     printf("      --cmdhandler NAME=VALUE\tPatch command NAME to jump to VALUE\n");
     printf("            (Example --cmdhandler go=0x41414141 makes go command jump to address 0x41414141)\n");
     printf("  -n, --nvram-unlock\t\tAllows reading and writing all nvram vars\n");
-    printf("      --disable-wnx\t\tSets iBoots SCTLR_EL1_WXN to 0\n");
+    printf("      --add-rw-and-rx-mappings\tSets iBoot block writeable at 0x2000000 and loadaddr block executable at 0x4000000\n");
 
     printf("\nKernel patches:\n");
     printf("     --sn0wsn0w\tApply generic kernelpatches\n");
@@ -271,8 +271,8 @@ int main_r(int argc, const char * argv[]) {
             case 6:
                 cfg.justiBoot = true;
                 break;
-            case 7: //disable-wnx
-                cfg.disableiBootWXN = true;
+            case 7: //add-rw-and-rx-mappings
+                cfg.add_rw_and_rx_mappings = true;
                 break;
 
             case 'h': // long option: "help"

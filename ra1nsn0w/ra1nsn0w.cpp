@@ -148,9 +148,9 @@ int iBootPatchFunc(char *file, size_t size, void *param){
         patches.insert(patches.end(), patch.begin(), patch.end());
     }
     
-    if (cfg->disableiBootWXN) {
-        printf("iBoot: Adding disable wxn patch...\n");
-        auto patch = ibpf->get_disable_wxn_patch();
+    if (cfg->add_rw_and_rx_mappings) {
+        printf("iBoot: Adding add_rw_and_rx_mappings patch...\n");
+        auto patch = ibpf->get_rw_and_x_mappings_patch_el1();
         patches.insert(patches.end(), patch.begin(), patch.end());
     }
     
