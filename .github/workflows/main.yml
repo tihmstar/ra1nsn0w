@@ -53,6 +53,7 @@ jobs:
               cd libirecovery
               ./autogen.sh --without-cython --enable-static --disable-shared CFLAGS="-fPIC" CXXFLAGS="-fPIC"
               make
+              rm -rf src/.libs/*.dylib #there is not such thing as no-dynamic on macOS
               sudo make install
               cd ..
               rm -rf libirecovery
