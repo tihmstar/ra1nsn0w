@@ -34,10 +34,10 @@ CFLAGS+=" -std=c11"
 
 PKG_CHECK_MODULES(libfragmentzip, libfragmentzip >= 60)
 PKG_CHECK_MODULES(libgeneral, libgeneral >= 32)
-PKG_CHECK_MODULES(libimg4tool, libimg4tool >= 190)
+PKG_CHECK_MODULES(libimg4tool, libimg4tool >= 192)
 PKG_CHECK_MODULES(libipatcher, libipatcher >= 77)
-PKG_CHECK_MODULES(libirecovery, libirecovery >= 0.2.0)
-PKG_CHECK_MODULES(liboffsetfinder64, liboffsetfinder64 >= 120)
+PKG_CHECK_MODULES(libirecovery, libirecovery-1.0 >= 1.0.1)
+PKG_CHECK_MODULES(liboffsetfinder64, liboffsetfinder64 >= 122)
 PKG_CHECK_MODULES(libplist, libplist-2.0 >= 2.2.0)
 PKG_CHECK_MODULES(libzip, libzip >= 1.5.1)
 
