@@ -1,0 +1,112 @@
+//
+//  ra1nsn0w.hpp
+//  ra1nsn0w
+//
+//  Created by tihmstar on 09.11.19.
+//  Copyright © 2019 tihmstar. All rights reserved.
+//
+
+#ifndef ra1nsn0w_hpp
+#define ra1nsn0w_hpp
+
+#include "iOSDevice.hpp"
+#include <img4tool/img4tool.hpp>
+#include <libpatchfinder/patch.hpp>
+#include <map>
+
+namespace tihmstar {
+    namespace ra1nsn0w{
+        enum Patchcfg{
+            kPatchcfgNo = 0,
+            kPatchcfgYes = 1,
+            kPatchcfgMayFail = 2,
+
+            //only apply for 32bit devices
+            kPatchcfg32Yes = 4,
+            kPatchcfg32MayFail = 8,
+
+            //only apply for 64bit devices
+            kPatchcfg64Yes = 16,
+            kPatchcfg64MayFail = 32,
+        };
+    
+        struct launchConfig{
+            bool is32Bit = false;
+            bool isOtaFirmware = false;
+            bool doJailbreakPatches = false;
+            bool justiBoot = false;
+            bool iboot_nopatch = false;
+            bool kernel_nopatch = false;
+            bool decrypt_devicetree = false;
+            bool nobootx = false;
+            bool no_iboot_sigpatch = false;
+            bool boot_iboot_instead_of_ibec = false;
+            bool boot_no_sep = false;
+            bool setAutobootFalse = false;
+            bool noDecrypt = false;
+            bool sendAllComponents = false;
+            bool isSRD = false;
+
+            std::string customKeysZipUrl = "";
+
+            std::string iboot_send_signed_sep = "";
+
+            Patchcfg iboot_nvramUnlock = kPatchcfgNo;
+            Patchcfg iboot_add_rw_and_rx_mappings = kPatchcfgNo;
+            Patchcfg iboot_disable_wxn_el3 = kPatchcfgNo;
+            Patchcfg iboot_sep_skip_lock = kPatchcfgNo;
+            Patchcfg iboot_sep_skip_bpr = kPatchcfgNo;
+            Patchcfg iboot_reboot_to_memcpy = kPatchcfgNo;
+            Patchcfg iboot_largepicture = kPatchcfgNo;
+            Patchcfg iboot_sep_force_local = kPatchcfgNo;
+            Patchcfg iboot_atv4k_enable_uart = kPatchcfgNo;
+            Patchcfg iboot_always_production = kPatchcfgNo;
+            Patchcfg iboot_always_sepfw_booted = kPatchcfgNo;
+            Patchcfg iboot_no_force_dfu = kPatchcfgNo;
+            Patchcfg iboot_dtre_debug_enable = kPatchcfgNo;
+
+            Patchcfg kpatch_codesig = kPatchcfgNo;
+            Patchcfg kpatch_mount = kPatchcfgNo;
+            Patchcfg kpatch_sandbox = kPatchcfgNo;
+            Patchcfg kpatch_nuke_sandbox = kPatchcfgNo;
+            Patchcfg kpatch_i_can_has_debugger = kPatchcfgNo;
+            Patchcfg kpatch_force_nand_writeable = kPatchcfgNo;
+            Patchcfg kpatch_always_get_task_allow = kPatchcfgNo;
+            Patchcfg kpatch_allow_uid = kPatchcfgNo;
+            Patchcfg kpatch_add_read_bpr = kPatchcfgNo;
+            Patchcfg kpatch_no_ramdisk_detect = kPatchcfgNo;
+            Patchcfg kpatch_get_kernelbase_syscall = kPatchcfgNo;
+            Patchcfg kpatch_tfp0 = kPatchcfgNo;
+            Patchcfg kpatch_tfp_unrestrict = kPatchcfgNo;
+            Patchcfg kpatch_setuid = kPatchcfgNo;
+            Patchcfg kpatch_force_boot_ramdisk = kPatchcfgNo;
+            Patchcfg kpatch_root_from_sealed_apfs = kPatchcfgNo;
+            Patchcfg kpatch_apfs_skip_authenticated_root = kPatchcfgNo;
+            
+            std::vector<uint8_t> root_ticket_hash;
+            std::vector<uint8_t> kernelHardcoderoot_ticket_hash;
+            std::vector<std::pair<std::string, uint64_t>> cmdhandler;
+            std::string cmdcall;
+            std::string bootargs;
+            std::string kernelHardcodeBootargs;
+
+            std::vector<uint8_t> kernelIm4p;
+            std::vector<uint8_t> ramdiskIm4p;
+            std::vector<uint8_t> sepIm4p;
+            std::vector<uint8_t> ra1nra1n;
+            std::vector<uint8_t> trustcache;
+            std::vector<uint8_t> bootlogoIm4p;
+            std::vector<uint8_t> iBSSIm4p;
+            std::vector<uint8_t> iBECIm4p;
+            bool ramdiskIsRawDMG = false;
+            
+            std::map<uint32_t,std::vector<patchfinder::patch>> userPatches; // <component,patches>
+            std::map<uint32_t,std::vector<std::pair<std::string,std::string>>> replacePatches; // <find str, replace str>
+            std::map<std::string,std::vector<uint8_t>> customComponents; // <componentName, data>
+        };
+
+        void launchDevice(iOSDevice &idev, std::string firmwareUrl, const launchConfig &cfg = {}, img4tool::ASN1DERElement im4mData = {}, std::string variant = "");
+    };
+};
+
+#endif /* ra1nsn0w_hpp */

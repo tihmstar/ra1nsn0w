@@ -6,17 +6,27 @@
 //  Copyright © 2019 tihmstar. All rights reserved.
 //
 
-#include "ra1nsn0w.hpp"
+#include "../include/ra1nsn0w/ra1nsn0w.hpp"
 #include <libgeneral/macros.h>
 #include <plist/plist.h>
 #include <libipatcher/libipatcher.hpp>
-#include <liboffsetfinder64/ibootpatchfinder64.hpp>
-#include <liboffsetfinder64/kernelpatchfinder64.hpp>
+#include <libpatchfinder/ibootpatchfinder/ibootpatchfinder64.hpp>
+#include <libpatchfinder/ibootpatchfinder/ibootpatchfinder32.hpp>
+#include <libpatchfinder/kernelpatchfinder/kernelpatchfinder64.hpp>
+#include <libpatchfinder/kernelpatchfinder/kernelpatchfinder32.hpp>
+#include <img3tool/img3tool.hpp>
+#include <tsschecker/TssRequest.hpp>
+#include <tsschecker/TSSException.hpp>
+#include <sys/stat.h>
+#include <string.h>
 
 extern "C"{
 #include <libfragmentzip/libfragmentzip.h>
 };
 
+#ifdef HAVE_OPENSSL
+#include <openssl/sha.h>
+#endif
 
 using namespace tihmstar;
 using namespace tihmstar::ra1nsn0w;
@@ -28,6 +38,46 @@ struct bootconfig{
     bool skipiBEC;
     uint32_t curPatchComponent;
 };
+
+#define addKernelpatch(cfgname, funcname, funcstring) \
+                    if (cfg.cfgname) { \
+                        if ((cfg.cfgname & (kPatchcfgYes | kPatchcfgMayFail)) \
+                            || (cfg.is32Bit && (cfg.cfgname & (kPatchcfg32Yes | kPatchcfg32MayFail))) \
+                            || (!cfg.is32Bit && (cfg.cfgname & (kPatchcfg64Yes | kPatchcfg64MayFail))) ){\
+                            info("Kernel: Adding " funcstring " patch...\n"); \
+                            try { \
+                                auto patch = kpf->funcname(); \
+                                patches.insert(patches.end(), patch.begin(), patch.end()); \
+                            } catch (tihmstar::exception &e) { \
+                                if ((cfg.cfgname & kPatchcfgMayFail) \
+                                    || (cfg.is32Bit && (cfg.cfgname & kPatchcfg32MayFail)) \
+                                    || (!cfg.is32Bit && (cfg.cfgname & kPatchcfg64MayFail)) )\
+                                        warning("Patch " funcstring " failed with error=%d (%s) but was marked as optional. Proceeding without...",e.code(),e.what()); \
+                                else throw; \
+                            } \
+                        }\
+                    }
+
+#define addiBootpatch(cfgname, funcname, funcstring) addiBootpatchCustom(cfgname, funcname, /**/, funcstring)
+#define addiBootpatchCustom(cfgname, funcname, arg, funcstring) \
+                    if (cfg->cfgname) { \
+                        if ((cfg->cfgname & (kPatchcfgYes | kPatchcfgMayFail)) \
+                            || (cfg->is32Bit && (cfg->cfgname & (kPatchcfg32Yes | kPatchcfg32MayFail))) \
+                            || (!cfg->is32Bit && (cfg->cfgname & (kPatchcfg64Yes | kPatchcfg64MayFail))) ){\
+                            info("iBoot: Adding " funcstring " patch..."); \
+                            try { \
+                                auto patch = ibpf->funcname(arg); \
+                                patches.insert(patches.end(), patch.begin(), patch.end()); \
+                            } catch (tihmstar::exception &e) { \
+                                if ((cfg->cfgname & kPatchcfgMayFail) \
+                                    || (cfg->is32Bit && (cfg->cfgname & kPatchcfg32MayFail)) \
+                                    || (!cfg->is32Bit && (cfg->cfgname & kPatchcfg64MayFail)) )\
+                                        warning("Patch " funcstring " failed with error=%d (%s) but was marked as optional. Proceeding without...",e.code(),e.what()); \
+                                else throw; \
+                            } \
+                        }\
+                    }
+
 
 #pragma mark helpers
 
@@ -43,75 +93,50 @@ static void fragmentzip_callback(unsigned int progress){
     printf("\n");
 }
 
-plist_t getBuildidentityWithBoardconfig(plist_t buildManifest, const char *boardconfig){
-    plist_t rt = NULL;
-    plist_t buildidentities = plist_dict_get_item(buildManifest, "BuildIdentities");
-    if (!buildidentities || plist_get_node_type(buildidentities) != PLIST_ARRAY){
-        reterror("[TSSR] Error: could not get BuildIdentities\n");
-    }
-    for (int i=0; i<plist_array_get_size(buildidentities); i++) {
-        rt = plist_array_get_item(buildidentities, i);
-        if (!rt || plist_get_node_type(rt) != PLIST_DICT){
-            reterror("[TSSR] Error: could not get id%d\n",i);
-        }
-        plist_t infodict = plist_dict_get_item(rt, "Info");
-        if (!infodict || plist_get_node_type(infodict) != PLIST_DICT){
-            reterror("[TSSR] Error: could not get infodict\n");
-        }
-        plist_t RestoreBehavior = plist_dict_get_item(infodict, "RestoreBehavior");
-        if (!RestoreBehavior || plist_get_node_type(RestoreBehavior) != PLIST_STRING){
-            reterror("[TSSR] Error: could not get RestoreBehavior\n");
-        }
-        char *string = NULL;
-        plist_t DeviceClass = plist_dict_get_item(infodict, "DeviceClass");
-        if (!DeviceClass || plist_get_node_type(DeviceClass) != PLIST_STRING){
-            reterror("[TSSR] Error: could not get DeviceClass\n");
-        }
-        plist_get_string_val(DeviceClass, &string);
-        if (strcasecmp(string, boardconfig) == 0)
-            return rt;
-    }
-    reterror("Failed to find matching buildidentity");
+static std::vector<uint8_t> readfile(const char *filePath){
+    int fd = -1;
+    cleanup([&]{
+        safeClose(fd);
+    });
+    struct stat st = {};
+    std::vector<uint8_t> ret;
+    assure((fd = open(filePath, O_RDONLY)) != -1);
+    assure(!fstat(fd, &st));
+    ret.resize(st.st_size);
+    assure(read(fd, ret.data(), ret.size()) == ret.size());
+    return ret;
 }
 
-int build_identity_get_component_path(plist_t build_identity, const char* component, char** path) {
-    char* filename = NULL;
+static plist_t readPlistFromFile(const char *filePath){
+    FILE *f = fopen(filePath,"rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
 
-    plist_t manifest_node = plist_dict_get_item(build_identity, "Manifest");
-    if (!manifest_node || plist_get_node_type(manifest_node) != PLIST_DICT) {
-        error("ERROR: Unable to find manifest node\n");
-        if (filename)
-            free(filename);
-        return -1;
+    size_t fSize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char *buf = (char*)malloc(fSize);
+    if (buf) fread(buf, fSize, 1, f);
+    fclose(f);
+
+    plist_t plist = NULL;
+    plist_from_memory(buf, (uint32_t)fSize, &plist, NULL);
+    free(buf);
+    return plist;
+}
+
+static char *im4mFormShshFile(const char *shshfile, size_t *outSize){
+    plist_t shshplist = readPlistFromFile(shshfile);
+    if (!shshplist) return NULL;
+    plist_t ticket = plist_dict_get_item(shshplist, "ApImg4Ticket");
+
+    char *im4m = 0;
+    uint64_t im4msize=0;
+    plist_get_data_val(ticket, &im4m, &im4msize);
+    if (outSize) {
+        *outSize = im4msize;
     }
-
-    plist_t component_node = plist_dict_get_item(manifest_node, component);
-    if (!component_node || plist_get_node_type(component_node) != PLIST_DICT) {
-        error("ERROR: Unable to find component node for %s\n", component);
-        if (filename)
-            free(filename);
-        return -1;
-    }
-
-    plist_t component_info_node = plist_dict_get_item(component_node, "Info");
-    if (!component_info_node || plist_get_node_type(component_info_node) != PLIST_DICT) {
-        error("ERROR: Unable to find component info node for %s\n", component);
-        if (filename)
-            free(filename);
-        return -1;
-    }
-
-    plist_t component_info_path_node = plist_dict_get_item(component_info_node, "Path");
-    if (!component_info_path_node || plist_get_node_type(component_info_path_node) != PLIST_STRING) {
-        error("ERROR: Unable to find component info path node for %s\n", component);
-        if (filename)
-            free(filename);
-        return -1;
-    }
-    plist_get_string_val(component_info_path_node, &filename);
-
-    *path = filename;
-    return 0;
+    plist_free(shshplist);
+    return im4msize ? im4m : NULL;
 }
 
 #pragma mark ra1nsn0w
@@ -125,376 +150,732 @@ img4tool::ASN1DERElement img4FromIM4PandIM4M(const img4tool::ASN1DERElement &im4
 
 
 int iBootPatchFunc(char *file, size_t size, void *param){
+    patchfinder::ibootpatchfinder *ibpf = nullptr;
+    cleanup([&]{
+        safeDelete(ibpf);
+    });
+
     bootconfig *bcfg = (bootconfig *)param;
     const launchConfig *cfg = bcfg->launchcfg;
+    std::vector<patchfinder::patch> patches;
+
+    if (cfg->is32Bit) {
+        ibpf = patchfinder::ibootpatchfinder32::make_ibootpatchfinder32(file,size);
+    }else{
+        ibpf = patchfinder::ibootpatchfinder64::make_ibootpatchfinder64(file,size);
+    }
     
-    std::vector<offsetfinder64::patch> patches;
-    offsetfinder64::ibootpatchfinder64 *ibpf = offsetfinder64::ibootpatchfinder64::make_ibootpatchfinder64(file,size);
-    cleanup([&]{
-        if (ibpf){
-            delete ibpf;
-        }
-    });
-    
-    {
-        printf("iBoot: Adding sigcheck patch...\n");
+    if (cfg->no_iboot_sigpatch){
+        warning("Skipping iBoot sigpatch! Device WILL NOT BOOT past this bootloader if patches aren't applied manually!!!!");
+    }else{
+        info("iBoot: Adding sigcheck patch...");
         auto patch = ibpf->get_sigcheck_patch();
         patches.insert(patches.end(), patch.begin(), patch.end());
     }
-    
-    {
-        printf("iBoot: Adding debug_enable patch...\n");
-        auto patch = ibpf->get_debug_enabled_patch();
-        patches.insert(patches.end(), patch.begin(), patch.end());
-    }
-    
-    if (cfg->add_rw_and_rx_mappings) {
-        printf("iBoot: Adding add_rw_and_rx_mappings patch...\n");
-        auto patch = ibpf->get_rw_and_x_mappings_patch_el1();
-        patches.insert(patches.end(), patch.begin(), patch.end());
-    }
-    
-    
+
     if (ibpf->has_recovery_console()) {
         bcfg->didProcessKernelLoader = true;
-        if (cfg->ra1nra1nPath){
-            {
-                printf("iBoot: Adding memcpy patch...\n");
-                auto patch = ibpf->replace_bgcolor_with_memcpy();
+        
+        {
+            try {
+                info("iBoot: Adding \"recovery mode\"->\"ra1nsn0w mode\" patch...");
+                auto patch = ibpf->get_replace_string_patch("recovery mode", "ra1nsn0w mode");
                 patches.insert(patches.end(), patch.begin(), patch.end());
+            } catch (tihmstar::exception &e) {
+                warning("Failed to add \"recovery mode\"->\"ra1nsn0w mode\" patch with error=%d (%s). Ignoring this and continueing anyways...",e.code(),e.what());
+                e.dump();
             }
+        }
+        
+        addiBootpatch(iboot_add_rw_and_rx_mappings, get_rw_and_x_mappings_patch_el1, "add_rw_and_rx_mappings")
+        addiBootpatch(iboot_sep_skip_lock, get_tz0_lock_patch, "get_tz0_lock_patch")
+        addiBootpatch(iboot_sep_skip_bpr, get_skip_set_bpr_patch, "get_skip_set_bpr_patch")
+        addiBootpatch(iboot_sep_force_local, get_force_septype_local_patch, "get_force_septype_local_patch")
+        addiBootpatch(iboot_largepicture, get_large_picture_patch, "get_large_picture_patch")
+        addiBootpatch(iboot_atv4k_enable_uart, get_atv4k_enable_uart_patch, "get_atv4k_enable_uart_patch")
+        addiBootpatch(iboot_always_production, get_always_production_patch, "get_always_production_patch")
+        addiBootpatch(iboot_always_sepfw_booted, get_always_sepfw_booted_patch, "get_always_sepfw_booted_patch")
+        addiBootpatch(iboot_no_force_dfu, get_no_force_dfu_patch, "get_no_force_dfu_patch")
+        addiBootpatch(iboot_dtre_debug_enable, get_debug_enabled_patch, "get_debug_enabled_patch")
 
+        
+        if (cfg->root_ticket_hash.size())            {
+            info("iBoot: Adding root_ticket_hash patch...");
+            auto patch = ibpf->set_root_ticket_hash(cfg->root_ticket_hash);
+            patches.insert(patches.end(), patch.begin(), patch.end());
+        }
+        
+        if (cfg->ra1nra1n.size()){
             {
-                printf("iBoot: Adding ra1nra1n patch...\n");
+                info("iBoot: Adding ra1nra1n patch...");
                 auto patch = ibpf->get_ra1nra1n_patch();
                 patches.insert(patches.end(), patch.begin(), patch.end());
             }
-        }else{
             {
-                printf("iBoot: Adding boot-arg patch (%s) ...\n",cfg->bootargs.c_str());
-                auto patch = ibpf->get_boot_arg_patch(cfg->bootargs.c_str());
+                info("iBoot: Adding replace_reboot_with_memcpy patch...");
+                auto patch = ibpf->replace_cmd_with_memcpy("reboot");
                 patches.insert(patches.end(), patch.begin(), patch.end());
             }
-            
-            if (cfg->cmdhandler.size()){
-                for (auto handler : cfg->cmdhandler) {
-                    printf("iBoot: Adding cmdhandler patch (%s=0x%016llx) ...\n",handler.first.c_str(),handler.second);
-                    auto patch = ibpf->get_cmd_handler_patch(handler.first.c_str(),handler.second);
-                    patches.insert(patches.end(), patch.begin(), patch.end());
-                }
-            }
-            
-            if (cfg->nvramUnlock) {
-                printf("iBoot: Adding nvram_unlock patch...\n");
-                auto patch = ibpf->get_unlock_nvram_patch();
+        }else{
+            addiBootpatchCustom(iboot_reboot_to_memcpy, replace_cmd_with_memcpy, "reboot", "replace_reboot_with_memcpy")
+        }
+
+        if (cfg->bootargs.size()) {
+            info("iBoot: Adding boot-arg patch (%s) ...",cfg->bootargs.c_str());
+            auto patch = ibpf->get_boot_arg_patch(cfg->bootargs.c_str());
+            patches.insert(patches.end(), patch.begin(), patch.end());
+        }
+        
+        if (cfg->cmdhandler.size()){
+            for (auto handler : cfg->cmdhandler) {
+                info("iBoot: Adding cmdhandler patch (%s=0x%016llx) ...",handler.first.c_str(),handler.second);
+                auto patch = ibpf->get_cmd_handler_patch(handler.first.c_str(),handler.second);
                 patches.insert(patches.end(), patch.begin(), patch.end());
             }
         }
         
+        if (cfg->cmdcall.size()) {
+            info("iBoot: Adding cmdcall patch (%s) ...",cfg->cmdcall.c_str());
+            auto patch = ibpf->get_cmd_handler_callfunc_patch(cfg->cmdcall.c_str());
+            patches.insert(patches.end(), patch.begin(), patch.end());
+        }
+        
+        addiBootpatch(iboot_nvramUnlock, get_unlock_nvram_patch, "nvram_unlock")
     }
     
-    
+    if (cfg->replacePatches.find(bcfg->curPatchComponent) != cfg->replacePatches.end()) {
+        auto replacePatches = cfg->replacePatches.at(bcfg->curPatchComponent);
+        for (auto &r : replacePatches) {
+            auto patch = ibpf->get_replace_string_patch(r.first, r.second);
+            patches.insert(patches.end(), patch.begin(), patch.end());
+        }
+        info("Inserted replacepatches for current component!");
+    }
+
     try {
         auto userpatches = cfg->userPatches.at(bcfg->curPatchComponent); //check if we have custom user patches for this component
         patches.insert(patches.end(), userpatches.begin(), userpatches.end());
-        printf("Inserted custom userpatches for current component!\n");
+        info("Inserted custom userpatches for current component!");
     } catch (...) {
         //
     }
     
-    
-
-    
     /* ---------- Applying collected patches ---------- */
+    info("iBoot: Applying patches...");
     for (auto p : patches) {
-        offsetfinder64::offset_t off = (offsetfinder64::offset_t)(p._location - ibpf->find_base());
+        uint64_t off = (uint64_t)(p._location - ibpf->find_base());
+#ifdef DEBUG
         printf("iBoot: Applying patch=%p : ",(void*)p._location);
         for (int i=0; i<p._patchSize; i++) {
             printf("%02x",((uint8_t*)p._patch)[i]);
         }
         printf("\n");
+#endif
         memcpy(&file[off], p._patch, p._patchSize);
     }
-    printf("iBoot: Patches applied!\n");
+    info("iBoot: Patches applied!");
     return 0;
 }
 
-void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4tool::ASN1DERElement &im4m, const launchConfig &cfg){
+std::vector<uint8_t> downloadComponent(fragmentzip_t *fzinfo, std::string path, bool isOta){
+    char *buf = NULL;
+    cleanup([&]{
+        safeFree(buf);
+    });
+    size_t bufSize = 0;
+    if (isOta) path = "AssetData/boot/" + path;
+    info("Loading %s ...",path.c_str());
+    retassure(!fragmentzip_download_to_memory(fzinfo, path.c_str(), &buf, &bufSize, fragmentzip_callback),"Failed to load '%s'",path.c_str());
+    return {buf,buf+bufSize};
+}
+
+void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const launchConfig &cfg, img4tool::ASN1DERElement im4m, std::string variant){
     bootconfig bootcfg = {&cfg};
     fragmentzip_t *fzinfo = NULL;
     char *buildmanifestBuf = NULL;
     size_t buildmanifestBufSize = 0;
     plist_t buildmanifest = NULL;
-    
-    char *ibssPath = NULL;
-    char *ibecPath = NULL;
-    char *kernelPath = NULL;
-    char *dtrePath = NULL;
-    char *trstPath = NULL;
-
-    char *ibssBuf = NULL;   size_t ibssBufSize = 0;
-    char *ibecBuf = NULL;   size_t ibecBufSize = 0;
-    char *kernelBuf = NULL; size_t kernelBufSize = 0;
-    char *dtreBuf = NULL;   size_t dtreBufSize = 0;
-    char *trstBuf = NULL;   size_t trstBufSize = 0;
 
     char *buildnum = NULL;
 
     cleanup([&]{
         safeFree(buildnum);
-
-        safeFree(dtreBuf);
-        safeFree(kernelBuf);
-        safeFree(ibecBuf);
-        safeFree(ibssBuf);
-        
-        safeFree(dtreBuf);
-        safeFree(kernelBuf);
-        safeFree(ibecPath);
-        safeFree(ibssPath);
-
         safeFreeCustom(buildmanifest,plist_free);
         safeFree(buildmanifestBuf);
         safeFreeCustom(fzinfo,fragmentzip_close);
     });
     plist_t buildidentity = NULL;
     plist_t pBuildnum = NULL;
-    libipatcher::pwnBundle bundle;
-    libipatcher::fw_key kernelKeys;
-
-    img4tool::ASN1DERElement piBSS{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
-    img4tool::ASN1DERElement piBEC{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
-
-    img4tool::ASN1DERElement pkernel{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
-    img4tool::ASN1DERElement pdtre{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
-    img4tool::ASN1DERElement ptrst{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
-
+    libipatcher::fw_key iBSSKeys = {};
+    libipatcher::fw_key iBECKeys = {};
+    libipatcher::fw_key kernelKeys = {};
     
-    printf("Opening firmware...\n");
+    std::string ibssPath;
+    std::string ibecPath;
+    std::string kernelPath;
+    std::string dtrePath;
+    std::string trstPath;
+    std::string rsepPath;
+    
+    std::vector<uint8_t> ibssData;
+    std::vector<uint8_t> ibecData;
+    std::vector<uint8_t> kernelData;
+    std::vector<uint8_t> dtreData;
+    std::vector<uint8_t> trstData;
+    std::vector<uint8_t> rsepData;
+    std::vector<uint8_t> rdskData;
+
+    uint64_t cpid = 0;
+    bool isIMG4 = idev.supportsIMG4();
+    
+    img4tool::ASN1DERElement piBSS;
+    img4tool::ASN1DERElement piBEC;
+    
+    img4tool::ASN1DERElement pkernel;
+    img4tool::ASN1DERElement pdtre;
+    img4tool::ASN1DERElement ptrst;
+    img4tool::ASN1DERElement prsep;
+
+    img4tool::ASN1DERElement pim4r;
+
+    retassure(im4m.payloadSize() || !isIMG4 || cfg.isSRD, "Missing argument: APTicket is required for IMG4 sigchk bypass");
+
+    info("Opening firmware...");
     retassure(fzinfo = fragmentzip_open(firmwareUrl.c_str()),"Failed to fragmentzip_open firmwareUrl");
     
-    printf("Loading BuildManifest...\n");
-    retassure(!fragmentzip_download_to_memory(fzinfo, "BuildManifest.plist", &buildmanifestBuf, &buildmanifestBufSize, fragmentzip_callback),"Failed to load BuildManifest.plist");
+    info("Loading BuildManifest...");
+    if (cfg.isOtaFirmware) {
+        retassure(!fragmentzip_download_to_memory(fzinfo, "AssetData/boot/BuildManifest.plist", &buildmanifestBuf, &buildmanifestBufSize, fragmentzip_callback),"Failed to load BuildManifest.plist");
+    }else{
+        retassure(!fragmentzip_download_to_memory(fzinfo, "BuildManifest.plist", &buildmanifestBuf, &buildmanifestBufSize, fragmentzip_callback),"Failed to load BuildManifest.plist");
+    }
         
-    plist_from_memory(buildmanifestBuf, static_cast<uint32_t>(buildmanifestBufSize), &buildmanifest);
+    plist_from_memory(buildmanifestBuf, static_cast<uint32_t>(buildmanifestBufSize), &buildmanifest, NULL);
     retassure(buildmanifest, "Failed to parse BuildManifest");
     
-    buildidentity = getBuildidentityWithBoardconfig(buildmanifest, idev.getDeviceHardwareModel().c_str());
+    if (variant.size() == 0) {
+        try {
+            std::string lvariant = cfg.isSRD ? RESTORE_VARIANT_RESEARCH_ERASE_INSTALL : RESTORE_VARIANT_ERASE_INSTALL;
+            if ((buildidentity = tsschecker::TssRequest::getBuildIdentityForDevice(buildmanifest, idev.getDeviceCPID(), idev.getDeviceBDID(), lvariant))){
+                variant = lvariant;
+                debug("Implicitly setting variant to '%s'",variant.c_str());
+            }
+        } catch (...) {
+            if (cfg.isSRD) variant = "Research";
+        }
+    }
+    if (!buildidentity) buildidentity = tsschecker::TssRequest::getBuildIdentityForDevice(buildmanifest, idev.getDeviceCPID(), idev.getDeviceBDID(), variant);
+    retassure(buildidentity, "Failed to find buildidentity for variant '%s'",variant.c_str());
+    {
+        plist_t p_ApChipID = NULL;
+        const char *ApChipID_str = NULL;
+        uint64_t ApChipID_str_len = 0;
+        retassure(p_ApChipID = plist_dict_get_item(buildidentity, "ApChipID"), "Failed to get ApChipID from BuildIdentity");
+        retassure(plist_get_node_type(p_ApChipID) == PLIST_STRING, "ApChipID is not of type PLIST_STRING");
+        retassure(ApChipID_str = plist_get_string_ptr(p_ApChipID, &ApChipID_str_len),"Failed to get ApChipID str ptr");
+        sscanf(ApChipID_str, "0x%llx",&cpid);
+        retassure(cpid,"Failed to parse cpid");
+        info("Got CPID=0x%llx",cpid);
+    }
     
     retassure(pBuildnum = plist_dict_get_item(buildmanifest, "ProductBuildVersion"), "Failed to get buildnum from BuildManifest");
     retassure(plist_get_node_type(pBuildnum) == PLIST_STRING, "ProductBuildVersion is not a string");
     plist_get_string_val(pBuildnum, &buildnum);
     retassure(buildnum, "failed to get buildnum");
     
-    printf("Getting Firmware Keys...\n");
-    try {
-        bundle = libipatcher::getPwnBundleForDevice(idev.getDeviceProductType(),buildnum);
-    } catch (tihmstar::exception &e) {
-        printf("libipatcher::getPwnBundleForDevice failed with error:\n");
-        e.dump();
-        reterror("Failed to get firmware keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
-    }
-    
-    try {
-        kernelKeys = libipatcher::getFirmwareKey(idev.getDeviceProductType(),buildnum, "Kernelcache");
-    } catch (tihmstar::exception &e) {
-        printf("libipatcher::getFirmwareKey(\"Kernelcache\") failed with error:\n");
-        e.dump();
-        reterror("Failed to get firmware keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
-    }
-    
 #pragma mark get path for components
-    retassure(!build_identity_get_component_path(buildidentity, "iBSS", &ibssPath), "Failed to get iBSS Path from BuildIdentity");
-    printf("Found iBSS at %s\n",ibssPath);
+    ibssPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "iBSS");
+    info("Found iBSS at %s",ibssPath.c_str());
 
-    retassure(!build_identity_get_component_path(buildidentity, "iBEC", &ibecPath), "Failed to get iBEC Path from BuildIdentity");
-    printf("Found iBEC at %s\n",ibecPath);
+    if (cfg.boot_iboot_instead_of_ibec) {
+        info("Booting iBoot instead of iBEC!!");
+        ibecPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "iBoot");
+    }else{
+        ibecPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "iBEC");
+    }
+    info("Found iBEC at %s",ibecPath.c_str());
 
-    retassure(!build_identity_get_component_path(buildidentity, "KernelCache", &kernelPath), "Failed to get kernel Path from BuildIdentity");
-    printf("Found kernel at %s\n",kernelPath);
+    if (!bootcfg.launchcfg->justiBoot || bootcfg.launchcfg->kernel_nopatch) {
+        kernelPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "KernelCache");
+        info("Found kernel at %s",kernelPath.c_str());
 
-    retassure(!build_identity_get_component_path(buildidentity, "DeviceTree", &dtrePath), "Failed to get DeviceTree Path from BuildIdentity");
-    printf("Found DeviceTree at %s\n",dtrePath);
+        if (cfg.isSRD) {
+            dtrePath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "RestoreDeviceTree");
+        }else{
+            dtrePath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "DeviceTree");
+        }
+        info("Found DeviceTree at %s",dtrePath.c_str());
 
-    if (!build_identity_get_component_path(buildidentity, "StaticTrustCache", &trstPath)){
-        printf("Found StaticTrustCache at %s\n",trstPath);
+        try {
+            if (cfg.isSRD) {
+                trstPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "RestoreTrustCache");
+            }else{
+                trstPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "StaticTrustCache");
+            }
+            info("Found StaticTrustCache at %s",trstPath.c_str());
+        } catch (tihmstar::TSSException_missingValue &e) {
+            //
+        }
+        
+        if (!bootcfg.launchcfg->boot_no_sep) {
+            try {
+                rsepPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "RestoreSEP");
+                info("Found RestoreSEP at %s",rsepPath.c_str());
+            } catch (tihmstar::TSSException_missingValue &e) {
+                //
+            }
+        }
+    }
+    
+#pragma mark get keys
+    if (!cfg.noDecrypt && !cfg.isSRD) {
+        info("Getting Firmware Keys...");
+        try {
+            iBSSKeys = libipatcher::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, ibssPath, cpid, cfg.customKeysZipUrl);
+        } catch (tihmstar::exception &e) {
+            info("libipatcher::getFirmwareKeyForPath failed with error:\n%s",e.dumpStr().c_str());
+            reterror("Failed to get iBSS keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
+        }
+        try {
+            iBECKeys = libipatcher::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, ibecPath, cpid, cfg.customKeysZipUrl);
+        } catch (tihmstar::exception &e) {
+            info("libipatcher::getFirmwareKeyForPath failed with error:\n%s",e.dumpStr().c_str());
+            reterror("Failed to get iBSS keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
+        }
+        if (!bootcfg.launchcfg->justiBoot) {
+            try {
+                kernelKeys = libipatcher::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, kernelPath, cpid, cfg.customKeysZipUrl);
+            } catch (tihmstar::exception &e) {
+                info("libipatcher::getFirmwareKeyForPath(\"%s\") failed with error:\n%s",kernelPath.c_str(),e.dumpStr().c_str());
+                reterror("Failed to get firmware keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
+            }
+        }
     }
     
 #pragma mark load components
-    printf("Loading iBSS...\n");
-    retassure(!fragmentzip_download_to_memory(fzinfo, ibssPath, &ibssBuf, &ibssBufSize, fragmentzip_callback),"Failed to load iBSS");
+    if (!cfg.iBSSIm4p.size()) ibssData = downloadComponent(fzinfo, ibssPath, cfg.isOtaFirmware);
+    if (!cfg.iBECIm4p.size()) ibecData = downloadComponent(fzinfo, ibecPath, cfg.isOtaFirmware);
+
+    if (cfg.isSRD) {
+        auto ramdiskPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "RestoreRamDisk");
+        info("Found RestoreRamdisk at %s",ramdiskPath.c_str());
+        if (!cfg.ramdiskIm4p.size()) rdskData = downloadComponent(fzinfo, ramdiskPath, cfg.isOtaFirmware);
+    }
+
+    if (!cfg.kernelIm4p.size() && kernelPath.size()) kernelData = downloadComponent(fzinfo, kernelPath, cfg.isOtaFirmware);
     
-    printf("Loading iBEC...\n");
-    retassure(!fragmentzip_download_to_memory(fzinfo, ibecPath, &ibecBuf, &ibecBufSize, fragmentzip_callback),"Failed to load iBEC");
+    if (!bootcfg.launchcfg->justiBoot) {
 
-    printf("Loading kernel...\n");
-    retassure(!fragmentzip_download_to_memory(fzinfo, kernelPath, &kernelBuf, &kernelBufSize, fragmentzip_callback),"Failed to load kernel");
+        dtreData = downloadComponent(fzinfo, dtrePath, cfg.isOtaFirmware);
 
-    printf("Loading DeviceTree...\n");
-    retassure(!fragmentzip_download_to_memory(fzinfo, dtrePath, &dtreBuf, &dtreBufSize, fragmentzip_callback),"Failed to load DeviceTree");
-
-    if (trstPath) {
-        printf("Loading StaticTrustCache...\n");
-        retassure(!fragmentzip_download_to_memory(fzinfo, trstPath, &trstBuf, &trstBufSize, fragmentzip_callback),"Failed to load StaticTrustCache");
+        if (trstPath.size() && !cfg.trustcache.size())
+            trstData = downloadComponent(fzinfo, trstPath, cfg.isOtaFirmware);
+        
+        if (rsepPath.size() && !cfg.sepIm4p.size() && !bootcfg.launchcfg->boot_no_sep)
+            rsepData = downloadComponent(fzinfo, rsepPath, cfg.isOtaFirmware);
     }
 
 #pragma mark patch components
-    printf("Patching iBSS...\n");
-    bootcfg.curPatchComponent = 'ssbi'; //ibss
-    auto ppiBSS = libipatcher::patchCustom(ibssBuf, ibssBufSize, bundle.iBSSKey, iBootPatchFunc, (void*)&bootcfg);
-    try {
-        piBSS = {ppiBSS.first,ppiBSS.second, true}; //transfer ownership of buffer to ASN1DERElement
-    } catch (tihmstar::exception &e) {
-        safeFree(ppiBSS.first); //if transfer fails, free buffer
-        throw;
+    if (cfg.iBSSIm4p.size()) {
+        if (isIMG4) {
+            piBSS = img4tool::ASN1DERElement(cfg.iBSSIm4p.data(), cfg.iBSSIm4p.size());
+        }else{
+            ibssData = cfg.iBSSIm4p;
+        }
+    }else if(cfg.iboot_nopatch || cfg.isSRD){
+        if (isIMG4) {
+            piBSS = {(uint8_t*)ibssData.data(), ibssData.size()};
+        }else{
+            ibssData = ibssData;
+        }
+    }else{
+        info("Patching iBSS...");
+        bootcfg.curPatchComponent = 'ssbi'; //ibss
+        auto ppiBSS = libipatcher::patchCustom((char*)ibssData.data(), ibssData.size(), iBSSKeys, iBootPatchFunc, (void*)&bootcfg);
+        cleanup([&]{
+            safeFree(ppiBSS.first); //free buffer
+        });
+        if (isIMG4) {
+            piBSS = {ppiBSS.first,ppiBSS.second};
+        }else{
+            ibssData = {ppiBSS.first,ppiBSS.first+ppiBSS.second};
+        }
     }
-    ppiBSS = {};//if transfer succeeds, discard second copy of buffer
     
     if (bootcfg.didProcessKernelLoader) {
-        printf("iBSS can already load kernel, skipping iBEC...\n");
+        info("iBSS can already load kernel, skipping iBEC...");
         bootcfg.skipiBEC = true;
     }else{
-        printf("Patching iBEC...\n");
-        bootcfg.curPatchComponent = 'cebi'; //ibec
-        auto ppiBEC = libipatcher::patchCustom(ibecBuf, ibecBufSize, bundle.iBECKey, iBootPatchFunc, (void*)&bootcfg);
-        try {
-            piBEC = {ppiBEC.first,ppiBEC.second, true}; //transfer ownership of buffer to ASN1DERElement
-        } catch (tihmstar::exception &e) {
-            safeFree(ppiBEC.first); //if transfer fails, free buffer
-            throw;
+        if (cfg.iBECIm4p.size()) {
+            if (isIMG4) {
+                piBEC = img4tool::ASN1DERElement(cfg.iBECIm4p.data(), cfg.iBECIm4p.size());
+            }else{
+                ibecData = cfg.iBECIm4p;
+            }
+        }else if(cfg.iboot_nopatch || cfg.isSRD){
+            if (isIMG4) {
+                piBEC = {(uint8_t*)ibecData.data(), ibecData.size()};
+            }else{
+                ibecData = ibecData;
+            }
+        }else{
+            info("Patching iBEC...");
+            bootcfg.curPatchComponent = 'cebi'; //ibec
+            auto ppiBEC = libipatcher::patchCustom((char*)ibecData.data(), ibecData.size(), iBECKeys, iBootPatchFunc, (void*)&bootcfg);
+            cleanup([&]{
+                safeFree(ppiBEC.first); //free buffer
+            });
+            if (isIMG4) {
+                piBEC = {ppiBEC.first,ppiBEC.second};
+            }else{
+                ibecData = {ppiBEC.first,ppiBEC.first+ppiBEC.second};
+            }
         }
-        ppiBEC = {};//if transfer succeeds, discard second copy of buffer
     }
 
-    
-    if (cfg.kernelIm4pPath) {
-        FILE *f = NULL;
-        char *kernelim4p = NULL;
-        cleanup([&]{
-            safeFree(kernelim4p);
-            safeFreeCustom(f, fclose);
-        });
-        size_t kernelim4pSize = 0;
-        printf("Loading kernelfile at=%s\n",cfg.kernelIm4pPath);
-        
-        assure(f = fopen(cfg.kernelIm4pPath, "rb"));
-        fseek(f, 0, SEEK_END);
-        assure(kernelim4pSize = ftell(f));
-        fseek(f, 0, SEEK_SET);
-        assure(kernelim4p = (char*)malloc(kernelim4pSize));
-        assure(fread(kernelim4p, 1, kernelim4pSize, f) == kernelim4pSize);
-        
-        pkernel = img4tool::ASN1DERElement(kernelim4p, kernelim4pSize, true);
-        kernelim4p = NULL;
-    }else{
-        printf("Patching kernel...\n");
-        bootcfg.curPatchComponent = 'nrkr'; //rkrn (restore kernel)
-        auto ppKernel = libipatcher::patchCustom(kernelBuf, kernelBufSize, kernelKeys, [&cfg](char *file, size_t size, void *param)->int{
-            std::vector<offsetfinder64::patch> patches;
-            
-            offsetfinder64::kernelpatchfinder64 kpf(file,size);
-            
-            if (cfg.doJailbreakPatches){
-                printf("Kernel: Adding MarijuanARM patch...\n");
-                auto patch = kpf.get_MarijuanARM_patch();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-            
-            if (cfg.doJailbreakPatches){
-                printf("Kernel: Adding task_conversion_eval patch...\n");
-                auto patch = kpf.get_task_conversion_eval_patch();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-
-            if (cfg.doJailbreakPatches){
-                printf("Kernel: Adding vm_fault_internal patch...\n");
-                auto patch = kpf.get_vm_fault_internal_patch();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-            
-            if (cfg.doJailbreakPatches){
-                printf("Kernel: Adding trustcache_true patch...\n");
-                auto patch = kpf.get_trustcache_true_patch();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-
-            if (cfg.doJailbreakPatches){
-                printf("Kernel: Adding mount patch...\n");
-                auto patch = kpf.get_mount_patch();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-
-            if (cfg.doJailbreakPatches){
-                printf("Kernel: Adding tfp0 patch...\n");
-                auto patch = kpf.get_tfp0_patch();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-            
-            if (cfg.doJailbreakPatches){
-                printf("Kernel: Adding amfi patch...\n");
-                auto patch = kpf.get_amfi_patch();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-            
-            if (cfg.doJailbreakPatches){
-                printf("Kernel: Adding get_task_allow patch...\n");
-                auto patch = kpf.get_get_task_allow_patch();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-
-            if (cfg.doJailbreakPatches){
-                printf("Kernel: Adding apfs_snapshot patch...\n");
-                auto patch = kpf.get_apfs_snapshot_patch();
-                patches.insert(patches.end(), patch.begin(), patch.end());
-            }
-
-            
-            /* ---------- Applying collected patches ---------- */
-            for (auto p : patches) {
-                offsetfinder64::offset_t off = (offsetfinder64::offset_t)((const char *)kpf.memoryForLoc(p._location) - file);
-                printf("kernel: Applying patch=%p : ",(void*)p._location);
-                for (int i=0; i<p._patchSize; i++) {
-                    printf("%02x",((uint8_t*)p._patch)[i]);
+    if (!bootcfg.launchcfg->justiBoot) {
+        if (cfg.kernelIm4p.size()) {
+            if (isIMG4) {
+                try {
+                    pkernel = img4tool::ASN1DERElement((char*)cfg.kernelIm4p.data(), cfg.kernelIm4p.size());
+                    pkernel = img4tool::renameIM4P(pkernel, "rkrn");
+                } catch (tihmstar::exception &e) {
+                    error("Failed to load kernel with error=%d (%s). Maybe not an IM4P file?",e.code(),e.what());
+#ifdef DEBUG
+                    e.dump();
+#endif
+                    pkernel = img4tool::getEmptyIM4PContainer("rkrn", "Kernel packed by ra1nsn0w on the fly");
+                    pkernel = appendPayloadToIM4P(pkernel, (char*)cfg.kernelIm4p.data(), cfg.kernelIm4p.size());
                 }
-                printf("\n");
-                memcpy(&file[off], p._patch, p._patchSize);
+            }else{
+                kernelData = cfg.kernelIm4p;
             }
-            printf("kernel: Patches applied!\n");
-            return 0;
-        }, NULL);
-        try {
-            pkernel = {ppKernel.first,ppKernel.second, true}; //transfer ownership of buffer to ASN1DERElement
-        } catch (tihmstar::exception &e) {
-            safeFree(ppKernel.first); //if transfer fails, free buffer
-            throw;
+        }else{
+            if (cfg.kernel_nopatch){
+                warning("Kernelpatches disabled by commandline argument, not modifying IM4P content");
+                if (isIMG4) {
+                    pkernel = {kernelData.data(),kernelData.size()};
+                }
+            }else{
+                info("Patching kernel...\n");
+                bootcfg.curPatchComponent = 'nrkr'; //rkrn (restore kernel)
+                auto ppKernel = libipatcher::patchCustom((char*)kernelData.data(), kernelData.size(), kernelKeys, [&cfg](char *file, size_t size, void *param)->int{
+                    std::vector<patchfinder::patch> patches;
+                    patchfinder::kernelpatchfinder *kpf = nullptr;
+                    cleanup([&]{
+                        safeDelete(kpf);
+                    });
+
+                    if (cfg.is32Bit) {
+                        kpf = patchfinder::kernelpatchfinder32::make_kernelpatchfinder32(file,size);
+                    }else{
+                        kpf = patchfinder::kernelpatchfinder64::make_kernelpatchfinder64(file,size);
+                    }
+                    
+                    if (cfg.doJailbreakPatches){
+                        info("Kernel: Adding generic kernel patches...");
+                        auto patch = kpf->get_generic_kernelpatches();
+                        patches.insert(patches.end(), patch.begin(), patch.end());
+                    }else{
+                        
+                        addKernelpatch(kpatch_codesig, get_codesignature_patches, "codesignature")
+                        addKernelpatch(kpatch_mount, get_mount_patch, "mount")
+
+                        addKernelpatch(kpatch_nuke_sandbox, get_nuke_sandbox_patch, "nuke-sandbox") else addKernelpatch(kpatch_sandbox, get_sandbox_patch, "sandbox")
+                        
+                        addKernelpatch(kpatch_i_can_has_debugger, get_i_can_has_debugger_patch, "i_can_has_debugger")
+                        addKernelpatch(kpatch_force_nand_writeable, get_force_NAND_writeable_patch, "force_NAND_writeable")
+                        addKernelpatch(kpatch_always_get_task_allow, get_always_get_task_allow_patch, "always_get_task_allow")
+                        addKernelpatch(kpatch_allow_uid, get_allow_UID_key_patch, "allow_UID_key");
+                        addKernelpatch(kpatch_add_read_bpr, get_read_bpr_patch, "read_bpr_patch");
+                        addKernelpatch(kpatch_no_ramdisk_detect, get_ramdisk_detection_patch, "kpatch_no_ramdisk_detect");
+                        addKernelpatch(kpatch_get_kernelbase_syscall, get_kernelbase_syscall_patch, "get_kernelbase_syscall_patch");
+                        addKernelpatch(kpatch_tfp0, get_tfp0_patch, "get_tfp0_patch");
+                        addKernelpatch(kpatch_tfp_unrestrict, get_tfp_anyone_allow_patch, "get_tfp_anyone_allow_patch");
+                        addKernelpatch(kpatch_setuid, get_insert_setuid_patch, "get_insert_setuid_patch");
+                        addKernelpatch(kpatch_force_boot_ramdisk, get_force_boot_ramdisk_patch, "get_force_boot_ramdisk_patch");
+                        addKernelpatch(kpatch_root_from_sealed_apfs, get_apfs_root_from_sealed_livefs_patch, "get_apfs_root_from_sealed_livefs_patch");
+                        addKernelpatch(kpatch_apfs_skip_authenticated_root, get_apfs_skip_authenticate_root_hash_patch, "get_apfs_skip_authenticate_root_hash_patch");
+                    }
+                    
+                    if (cfg.kernelHardcodeBootargs.size()) {
+                        info("Kernel: Adding hardcode boot-arg patch (%s) ...",cfg.kernelHardcodeBootargs.c_str());
+                        auto patch = kpf->get_harcode_bootargs_patch(cfg.kernelHardcodeBootargs.c_str());
+                        patches.insert(patches.end(), patch.begin(), patch.end());
+                    }
+
+                    if (cfg.kernelHardcoderoot_ticket_hash.size()) {
+                        std::string pretty;
+                        for (auto b : cfg.kernelHardcoderoot_ticket_hash) {
+                            char buf[0x10] = {};
+                            snprintf(buf, sizeof(buf), "%02x",b);
+                            pretty += buf;
+                        }
+                        info("Kernel: Adding hardcode boot-manifest patch (%s) ...",pretty.c_str());
+                        auto patch = kpf->get_harcode_boot_manifest_patch(cfg.kernelHardcoderoot_ticket_hash);
+                        patches.insert(patches.end(), patch.begin(), patch.end());
+                    }
+
+                    if (cfg.replacePatches.find('nrkr') != cfg.replacePatches.end()) {
+                        auto replacePatches = cfg.replacePatches.at('nrkr');
+                        for (auto &r : replacePatches) {
+                            auto patch = kpf->get_replace_string_patch(r.first, r.second);
+                            patches.insert(patches.end(), patch.begin(), patch.end());
+                        }
+                        info("Inserted replacepatches for rkrn!");
+                    }
+                    
+                    if (cfg.replacePatches.find('nrek') != cfg.replacePatches.end()) {
+                        auto replacePatches = cfg.replacePatches.at('nrek');
+                        for (auto &r : replacePatches) {
+                            auto patch = kpf->get_replace_string_patch(r.first, r.second);
+                            patches.insert(patches.end(), patch.begin(), patch.end());
+                        }
+                        info("Inserted replacepatches for kern!");
+                    }
+                    try {
+                        auto userpatches = cfg.userPatches.at('nrkr'); //check if we have custom user patches for this component
+                        patches.insert(patches.end(), userpatches.begin(), userpatches.end());
+                        info("Kernel: Inserted custom userpatches for rkrn!");
+                    } catch (...) {
+                        //
+                    }
+                    try {
+                        auto userpatches = cfg.userPatches.at('nrek'); //check if we have custom user patches for this component
+                        patches.insert(patches.end(), userpatches.begin(), userpatches.end());
+                        info("Kernel: Inserted custom userpatches for kern!");
+                    } catch (...) {
+                        //
+                    }
+
+                    /* ---------- Applying collected patches ---------- */
+                    info("Kernel: Applying patches...");
+                    for (auto p : patches) {
+                        uint64_t off = (uint64_t)((const char *)kpf->memoryForLoc(p._location) - file);
+#ifdef DEBUG
+                        printf("kernel: Applying patch=%p : ",(void*)p._location);
+                        for (int i=0; i<p._patchSize; i++) {
+                            printf("%02x",((uint8_t*)p._patch)[i]);
+                        }
+                        printf("\n");
+#endif
+                        memcpy(&file[off], p._patch, p._patchSize);
+                    }
+                    
+                    info("Kernel: Patches applied!");
+                    return 0;
+                }, NULL);
+                cleanup([&]{
+                    safeFree(ppKernel.first); //free buffer
+                });
+
+                if (isIMG4) {
+                    pkernel = {ppKernel.first,ppKernel.second};
+                }else{
+                    kernelData = {ppKernel.first,ppKernel.first+ppKernel.second};
+                }
+            }
+            if (isIMG4) {
+                pkernel = img4tool::renameIM4P(pkernel, "rkrn");
+            }
         }
-        ppKernel = {};//if transfer succeeds, discard second copy of buffer
-        pkernel = img4tool::renameIM4P(pkernel, "rkrn");
+        
+        if (cfg.decrypt_devicetree) {
+            info("Decrypting Devicetree");
+            libipatcher::fw_key devicetreeKeys = {};
+            try {
+                devicetreeKeys = libipatcher::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, dtrePath, cpid, cfg.customKeysZipUrl);
+            } catch (tihmstar::exception &e) {
+                info("libipatcher::getFirmwareKey(\"DeviceTree\") failed with error:\n%s",e.dumpStr().c_str());
+                reterror("Failed to get firmware keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
+            }
+            
+            //run with empty patcher function just for decryption
+            auto ppdtre = libipatcher::patchCustom((char*)dtreData.data(), dtreData.size(), devicetreeKeys, [](char*, size_t, void*)->int{return 0;}, NULL);
+            try {
+                pdtre = {ppdtre.first,ppdtre.second, true}; //transfer ownership of buffer to ASN1DERElement
+                ppdtre = {};//if transfer succeeds, discard second copy of buffer
+            } catch (tihmstar::exception &e) {
+                safeFree(ppdtre.first); //if transfer fails, free buffer
+                throw;
+            }
+        }else{
+            if (isIMG4) {
+                pdtre = {dtreData.data(),dtreData.size()};
+            }
+        }
+        
+        if (isIMG4) {
+            info("Renaming DeviceTree...\n");
+            pdtre = img4tool::renameIM4P(pdtre, "rdtr");
+        }
+        
+        if (cfg.trustcache.size()) {
+            ptrst = img4tool::ASN1DERElement(cfg.trustcache.data(), cfg.trustcache.size());
+            info("Renaming StaticTrustCache...\n");
+            ptrst = img4tool::renameIM4P(ptrst, "rtsc");//we still want to do the renaming
+        }else if (trstData.size()) {
+            ptrst = {trstData.data(),trstData.size()};
+            info("Renaming StaticTrustCache...\n");
+            ptrst = img4tool::renameIM4P(ptrst, "rtsc");//we still want to do the renaming
+        }
+        
+        if (!bootcfg.launchcfg->boot_no_sep) {
+            if (cfg.sepIm4p.size()) {
+                prsep = img4tool::ASN1DERElement(cfg.sepIm4p.data(), cfg.sepIm4p.size());
+            }else if (rsepData.size()) {
+                info("Renaming RestoreSEP...");
+                prsep = {rsepData.data(),rsepData.size()};
+                if (cfg.iboot_sep_force_local) {
+                    prsep = img4tool::renameIM4P(prsep, "sepi");
+                }else{
+                    prsep = img4tool::renameIM4P(prsep, "rsep");
+                }
+            }
+        }
+    }else{
+        if (cfg.kernel_nopatch){
+            warning("Kernelpatches disabled by commandline argument, not modifying IM4P content");
+            if (isIMG4) {
+                pkernel = {kernelData.data(),kernelData.size()};
+                pkernel = img4tool::renameIM4P(pkernel, "rkrn");
+            }
+        }
     }
     
-    printf("Patching DeviceTree...\n");
-    pdtre = {dtreBuf,dtreBufSize};
-    pdtre = img4tool::renameIM4P(pdtre, "rdtr");
-    
-    if (trstBuf && trstBufSize) {
-        printf("Patching StaticTrustCache...\n");
-        ptrst = {trstBuf,trstBufSize};
-        ptrst = img4tool::renameIM4P(ptrst, "rtsc");
+#pragma mark SRD
+    if (cfg.isSRD) {
+        info("Requesting APTicket for SRD...");
+        plist_t pRestoreKernel = NULL;
+        retassure(pRestoreKernel = tsschecker::TssRequest::getElementForComponentBuildIdentity(buildidentity, "RestoreKernelCache"), "Failed to get Component RestoreKernelCache");
+        {
+            std::vector<uint8_t> sha384Hash;
+#ifdef HAVE_OPENSSL
+            sha384Hash.resize(SHA384_DIGEST_LENGTH);
+            SHA384((uint8_t*)pkernel.buf(), pkernel.size(), sha384Hash.data());
+#else
+            reterror("Compiled without openssl");
+#endif
+            plist_dict_set_item(pRestoreKernel, "Digest", plist_new_data((char*)sha384Hash.data(), sha384Hash.size()));
+            
+            tsschecker::TssRequest req(buildidentity,"",true);
+            req.setEcid(idev.getDeviceECID());
+            req.setDeviceVals(idev.getDeviceCPID(), idev.getDeviceBDID());
+            req.addDefaultAPTagsToRequest();
+            req.addAllAPComponentsToRequest();
+            req.setAPNonce(idev.getAPNonce());
+            req.setSEPNonce(idev.getSEPNonce());
+            
+            std::map<std::string,std::vector<uint8_t>> tbm;
+            {
+                plist_t ticket = NULL;
+                cleanup([&]{
+                    safeFreeCustom(ticket, plist_free);
+                });
+                retassure(ticket = req.getTSSResponce(), "Failed to get APTicker");
+                auto im4mdata = tsschecker::TssRequest::getApImg4TicketFromTssResponse(ticket);
+                im4m = {im4mdata.data(),im4mdata.size()};
+                
+                if (plist_t p_tbm = plist_dict_get_item(ticket, "iBSS-TBM")) {
+                    std::vector<uint8_t> tbm_ucon = tsschecker::TssRequest::getElementFromTssResponse(p_tbm, "ucon");
+                    std::vector<uint8_t> tbm_ucer = tsschecker::TssRequest::getElementFromTssResponse(p_tbm, "ucer");
+                    tbm["ucon"] = tbm_ucon;
+                    tbm["ucer"] = tbm_ucer;
+                }
+            }
+            
+            if (tbm.size()) {
+                pim4r = tihmstar::img4tool::getIM4RWithElements(tbm);
+            }
+        }
     }
+    
+    if (cfg.iboot_send_signed_sep.size()) {
+        info("Requesting fresh RestoreSEP ticket");
+        tsschecker::TssRequest req(buildidentity,"",true);
+        req.setEcid(idev.getDeviceECID());
+        req.setDeviceVals(idev.getDeviceCPID(), idev.getDeviceBDID());
+        req.addDefaultAPTagsToRequest();
+        req.addAllAPComponentsToRequest();
+        req.setAPNonce(idev.getAPNonce());
+        req.setSEPNonce(idev.getSEPNonce());
+
+        {
+            plist_t ticket = NULL;
+            cleanup([&]{
+                safeFreeCustom(ticket, plist_free);
+            });
+            retassure(ticket = req.getTSSResponce(), "Failed to get APTicker");
+            auto im4mdata = tsschecker::TssRequest::getApImg4TicketFromTssResponse(ticket);
+            img4tool::ASN1DERElement im4m = {im4mdata.data(),im4mdata.size()};
+            info("Signing restoreSEP with fresh ticket");
+            if (img4tool::isIMG4(prsep)) {
+                prsep = img4tool::getIM4PFromIMG4(prsep);
+            }
+            prsep = img4tool::renameIM4P(prsep, "rsep");
+            prsep = img4FromIM4PandIM4M(prsep,im4m);
+            if (cfg.iboot_send_signed_sep.front() != '\0') {
+                FILE *f = NULL;
+                cleanup([&]{
+                    safeFreeCustom(f, fclose);
+                });
+                info("Writing signed RestoreSEP to fil '%s'",cfg.iboot_send_signed_sep.c_str());
+                retassure(f = fopen(cfg.iboot_send_signed_sep.c_str(), "w"), "Failed to open file '%s'",cfg.iboot_send_signed_sep.c_str());
+                fwrite(prsep.buf(), 1, prsep.size(), f);
+            }
+        }
+    }
+
     
 #pragma mark stich APTicket and send
     if (idev.getDeviceMode() != iOSDevice::recovery) {
         //are we in pwn recovery already??
-        printf("Sending iBSS...\n");
-        auto siBSS = img4FromIM4PandIM4M(piBSS,im4m);
-        idev.setCheckpoint();
-        idev.sendComponent(siBSS.buf(), siBSS.size());
+        info("Sending iBSS...");
+        if (isIMG4) {
+            auto siBSS = img4FromIM4PandIM4M(piBSS,im4m);
+            if (pim4r.size() > 2){
+                siBSS = tihmstar::img4tool::appendIM4RToIMG4(siBSS, pim4r);
+            }
+            idev.setCheckpoint();
+            idev.sendComponent(siBSS.buf(), siBSS.size());
+        }else{
+            idev.setCheckpoint();
+            idev.sendComponent(ibssData.data(), ibssData.size());
+        }
+#if defined(__aarch64__)
+        try {
+#endif
+            idev.waitForReconnect(20000);
+#if defined(__aarch64__)
+        } catch (...) {
+            printf("********************** Attention! **********************\n"
+                   "*   Timeout reached waiting for device entering iBSS   *\n"
+                   "*         This could be cause by an M1 USB bug         *\n"
+                   "*  In this case you need to disconnect and re-connect  *\n"
+                   "* the cable (or adapter)  AT THE COMPUTER (USB-C) END! *\n"
+                   "*     Disconnecting at the phone end will NOT work     *\n"
+                   "********************************************************\n"
+                   );
+            for (int i=40; i>=0; i-=10) {
+                printf("Waiting %2d more seconds...\n",i);
+                try {
+                    idev.waitForReconnect(10000);
+                    goto got_device_in_ibss;
+                } catch (...) {
+                    //
+                }
+            }
+            throw;
+        }
+    got_device_in_ibss:;
+#endif
     }else if (bootcfg.skipiBEC){
+        retassure(isIMG4, "unexpected skipiBEC on IMG3 device");
         /*
          we are already in (pwn???) recovery, but this device has only 1 stage bootloader
          in order to reboot to iBSS we actually need to rename the image to iBEC
          */
-        printf("Renaming iBSS to iBEC...\n");
+        info("Renaming iBSS to iBEC...");
         piBEC = img4tool::renameIM4P(piBSS, "ibec");
         auto siBEC = img4FromIM4PandIM4M(piBEC,im4m);
         idev.setCheckpoint();
@@ -502,142 +883,276 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const img4
         if (idev.getDeviceMode() == iOSDevice::recovery) {
             idev.sendCommand("go");
         }
+        idev.waitForReconnect(30000);
+    }
+    
+    if (idev.getDeviceMode() == iOSDevice::recovery) {
+        bootcfg.skipiBEC = true;
     }
     
     if (!bootcfg.skipiBEC) {
-        idev.waitForReconnect(10000);
-        printf("Sending iBEC...\n");
-        auto siBEC = img4FromIM4PandIM4M(piBEC,im4m);
-        idev.setCheckpoint();
-        idev.sendComponent(siBEC.buf(), siBEC.size());
+        info("Sending iBEC...");
+        if (isIMG4) {
+            auto siBEC = img4FromIM4PandIM4M(piBEC,im4m);
+            idev.setCheckpoint();
+            idev.sendComponent(siBEC.buf(), siBEC.size());
+        }else{
+            if (cfg.boot_iboot_instead_of_ibec) {
+                info("Renaming ibot to ibec");
+                auto ibec_new = img3tool::renameIMG3(ibecData.data(), ibecData.size(), "ibec");
+                idev.setCheckpoint();
+                idev.sendComponent(ibec_new.data(),ibec_new.size());
+            }else{
+                idev.setCheckpoint();
+                idev.sendComponent(ibecData.data(),ibecData.size());
+            }
+        }
+        
         if (idev.getDeviceMode() == iOSDevice::recovery) {
             idev.sendCommand("go");
         }
+        idev.waitForReconnect(30000);
     }
-
-    idev.waitForReconnect(50000);
     
     retassure(idev.getDeviceMode() == iOSDevice::recovery, "Device failed to boot iBoot");
 
     if (bootcfg.launchcfg->justiBoot) {
-        printf("iBoot reached, returning.\n");
+        info("iBoot reached, returning.");
         return;
+    }
+    
+    if (cfg.sendAllComponents) {
+        plist_array_iter m_iter = NULL;
+        char *key_component = NULL;
+        cleanup([&]{
+            safeFree(key_component);
+            safeFree(m_iter);
+        });
+        plist_t manifest = NULL;
+        plist_t p_component_val = NULL;
+
+        manifest = plist_dict_get_item(buildidentity, "Manifest");
+        plist_dict_new_iter(manifest, &m_iter);
+        for (plist_dict_next_item(manifest, m_iter, &key_component, &p_component_val); p_component_val; safeFree(key_component),plist_dict_next_item(manifest, m_iter, &key_component, &p_component_val)) {
+            
+            if (strcmp(key_component, "AppleLogo") == 0
+                || strcmp(key_component, "BatteryCharging0") == 0
+                || strcmp(key_component, "BatteryCharging1") == 0
+                || strcmp(key_component, "BatteryFull") == 0
+                || strcmp(key_component, "BatteryLow0") == 0
+                || strcmp(key_component, "BatteryLow1") == 0
+                || strcmp(key_component, "BatteryPlugin") == 0
+                || strcmp(key_component, "DeviceTree") == 0
+                || strcmp(key_component, "KernelCache") == 0
+                || strcmp(key_component, "LLB") == 0
+                || strcmp(key_component, "RestoreDeviceTree") == 0
+                || strcmp(key_component, "RestoreKernelCache") == 0
+                || strcmp(key_component, "RestoreLogo") == 0
+                || strcmp(key_component, "RestoreRamDisk") == 0
+                || strcmp(key_component, "RestoreSEP") == 0
+                || strcmp(key_component, "RestoreTrustCache") == 0
+                || strcmp(key_component, "SEP") == 0
+                || strcmp(key_component, "StaticTrustCache") == 0
+                || strcmp(key_component, "iBEC") == 0
+                || strcmp(key_component, "iBSS") == 0
+                || strcmp(key_component, "iBoot") == 0
+                || strcmp(key_component, "RestoreTrustCache") == 0
+                || strcmp(key_component, "SEP") == 0) continue;
+            
+            img4tool::ASN1DERElement im4p;
+            auto customComponent = cfg.customComponents.find(key_component);
+            if (customComponent == cfg.customComponents.end()) {
+                plist_t info = plist_dict_get_item(p_component_val, "Info");
+                assure(info);
+                plist_t p_IsLoadedByiBoot = plist_dict_get_item(info, "IsLoadedByiBoot");
+                if (!p_IsLoadedByiBoot || !plist_bool_val_is_true(p_IsLoadedByiBoot)) continue;
+                plist_t path = plist_dict_get_item(info, "Path");
+                
+                plist_t p_Img4PayloadType = plist_dict_get_item(info, "Img4PayloadType");
+                retassure(isIMG4, "expecting IMG4 here");
+                {
+                    char *path_str = NULL;
+                    char *im4pTagName = NULL;
+                    cleanup([&]{
+                        safeFree(im4pTagName);
+                        safeFree(path_str);
+                    });
+                    plist_get_string_val(path, &path_str);
+                    
+                    auto cmpnt = downloadComponent(fzinfo, path_str, cfg.isOtaFirmware);
+                    
+                    if (p_Img4PayloadType) {
+                        plist_get_string_val(p_Img4PayloadType, &im4pTagName);
+                    }
+                    
+                    im4p = {cmpnt.data(),cmpnt.size()};
+                    if (im4pTagName) {
+                        info("Renaming (%s) to '%s'",key_component,im4pTagName);
+                        im4p = img4tool::renameIM4P(im4p, im4pTagName);
+                    }
+                }
+            }else{
+                info("Sending custom component '%s'",key_component);
+                im4p = {customComponent->second.data(),customComponent->second.size()};
+            }
+            
+            auto img4 = img4FromIM4PandIM4M(im4p,im4m);
+            idev.sendComponent(img4.buf(), img4.size());
+            idev.sendCommand("firmware");
+        }
     }
 
     
-    if (!cfg.ra1nra1nPath) {
+    if (!cfg.bootlogoIm4p.size()){
         idev.sendCommand("bgcolor 0 0 255");
+    }else{
+        info("Sending Custom logo...");
+        if (isIMG4){
+            img4tool::ASN1DERElement plogo(cfg.bootlogoIm4p.data(), cfg.bootlogoIm4p.size());
+            auto slogo = img4FromIM4PandIM4M(plogo,im4m);
+            idev.sendComponent(slogo.buf(), slogo.size());
+        }else{
+            idev.sendComponent(cfg.bootlogoIm4p.data(), cfg.bootlogoIm4p.size());
+        }
+        idev.sendCommand("setpicture 0");
+        idev.sendCommand("bgcolor 0 0 0");
     }
     
-    if (cfg.apticketdump) {
-        printf("Option apticketdump detected, returning.\n");
-        return;
+    if (cfg.setAutobootFalse) {
+        info("Disabling auto-boot");
+        idev.sendCommand("setenv auto-boot false");
+        idev.sendCommand("saveenv");
     }
     
-    if (ptrst.size()) {
-        printf("Sending StaticTrustCache...\n");
+    if (ptrst.payloadSize()) {
+        info("Sending StaticTrustCache...");
         auto strst = img4FromIM4PandIM4M(ptrst,im4m);
         idev.sendComponent(strst.buf(), strst.size());
         idev.sendCommand("firmware");
     }
     
-    printf("Sending DeviceTree...\n");
-    auto sdtre = img4FromIM4PandIM4M(pdtre,im4m);
-    idev.sendComponent(sdtre.buf(), sdtre.size());
+    if (prsep.payloadSize()) {
+        info("Sending RestoreSEP...");
+        img4tool::ASN1DERElement srsep;
+        if (img4tool::isIMG4(prsep)) {
+            info("SEP is already IMG4 file, not re-signing with the supplied APTicket!");
+            srsep = prsep;
+        }else{
+            srsep = img4FromIM4PandIM4M(prsep,im4m);
+        }
+
+        idev.sendComponent(srsep.buf(), srsep.size());
+        idev.sendCommand("rsepfirmware");
+    }
+    
+    info("Sending DeviceTree...");
+    if (isIMG4) {
+        auto sdtre = img4FromIM4PandIM4M(pdtre,im4m);
+        idev.sendComponent(sdtre.buf(), sdtre.size());
+    }else{
+        idev.sendComponent(dtreData.data(), dtreData.size());
+    }
     idev.sendCommand("devicetree");
 
-    if (cfg.ramdiskIm4pPath) {
-        FILE *f = NULL;
-        char *im4p = NULL;
-        cleanup([&]{
-            safeFree(im4p);
-            safeFreeCustom(f, fclose);
-        });
-        size_t im4pSize = 0;
-        printf("Loading ramdisk at=%s\n",cfg.ramdiskIm4pPath);
-        
-        assure(f = fopen(cfg.ramdiskIm4pPath, "rb"));
-        fseek(f, 0, SEEK_END);
-        assure(im4pSize = ftell(f));
-        fseek(f, 0, SEEK_SET);
-        assure(im4p = (char*)malloc(im4pSize));
-        assure(fread(im4p, 1, im4pSize, f) == im4pSize);
-        
-        img4tool::ASN1DERElement pramdisk = img4tool::ASN1DERElement(im4p, im4pSize, true);
-        im4p = NULL;
-        
-        printf("Sending ramdisk...\n");
-        auto sramdisk = img4FromIM4PandIM4M(pramdisk,im4m);
-        idev.sendComponent(sramdisk.buf(), sramdisk.size());
+    if (cfg.ramdiskIm4p.size() || rdskData.size()) {
+        const std::vector<uint8_t> *realRDSK = cfg.ramdiskIm4p.size() ? &cfg.ramdiskIm4p : &rdskData;
+        if (isIMG4) {
+            img4tool::ASN1DERElement sramdisk;
+            bool ramdiskNeedsPacking = cfg.ramdiskIsRawDMG;
+
+            if (!ramdiskNeedsPacking) {
+                try {
+                    img4tool::ASN1DERElement pramdisk = img4tool::ASN1DERElement((*realRDSK).data(), (*realRDSK).size());
+                    sramdisk = img4FromIM4PandIM4M(pramdisk,im4m);
+                } catch (tihmstar::exception &e) {
+                    error("Failed to load ramdisk with error=%d (%s). Maybe not an IM4P file?",e.code(),e.what());
+#ifdef DEBUG
+                    e.dump();
+#endif
+                    ramdiskNeedsPacking = true;
+                }
+            }
+            
+            if (ramdiskNeedsPacking){
+                info("Packing raw ramdisk to IM4P...");
+                img4tool::ASN1DERElement pramdisk = img4tool::getEmptyIM4PContainer("rdsk", "Ramdisk packed by ra1nsn0w on the fly");
+                pramdisk = appendPayloadToIM4P(pramdisk, (*realRDSK).data(), (*realRDSK).size());
+                sramdisk = img4FromIM4PandIM4M(pramdisk, im4m);
+            }
+            
+            info("Sending ramdisk...");
+            idev.sendComponent(sramdisk.buf(), sramdisk.size());
+        }else{
+            bool ramdiskNeedsPacking = cfg.ramdiskIsRawDMG;
+            std::vector<uint8_t> tmpbuf;
+            const uint8_t *ramdiskBufPtr = NULL;
+            size_t ramdiskBufSize = 0;
+
+            if (!ramdiskNeedsPacking){
+                try {
+                    auto type = img3tool::getValFromIMG3((*realRDSK).data(), (*realRDSK).size(), 'TYPE');
+                    retassure(type.size() == 4 && *(uint32_t*)type.data() == 'rdsk', "TYPE not 'rdsk', this is bad!");
+                    ramdiskBufPtr = (*realRDSK).data();
+                    ramdiskBufSize = (*realRDSK).size();
+                } catch (tihmstar::exception &e) {
+                    error("Failed to load get ramdisk type with error=%d (%s). Maybe not an IMG3 file?",e.code(),e.what());
+#ifdef DEBUG
+                    e.dump();
+#endif
+                    ramdiskNeedsPacking = true;
+                }
+            }
+
+            if (ramdiskNeedsPacking){
+                info("Packing raw ramdisk to IMG3...");
+                tmpbuf = img3tool::appendPayloadToIMG3(img3tool::getEmptyIMG3Container('rdsk'), 'DATA', (*realRDSK));
+                ramdiskBufPtr = tmpbuf.data();
+                ramdiskBufSize = tmpbuf.size();
+            }
+            
+            info("Sending ramdisk...");
+            idev.sendComponent(ramdiskBufPtr, ramdiskBufSize);
+        }
+        idev.sendCommand("ramdisk");
+    } else if (!isIMG4){
+        /*
+         If we're dealing with IMG3, then we always need to send a ramdisk, even if we want to do localboot.
+         If the bootarg doesn't contain "rd=md0" then ramdisk is ignored by the kernel
+         */
+        info("Sending dummy ramdisk...");
+        std::string payload = "[THIS IS A RAMDISK]";
+        auto rdsk = img3tool::appendPayloadToIMG3(img3tool::getEmptyIMG3Container('rdsk'), 'DATA', {payload.data(),payload.data()+payload.size()});
+        idev.sendComponent(rdsk.data(), rdsk.size());
         idev.sendCommand("ramdisk");
     }
     
-    if (cfg.ra1nra1nPath) {
-        FILE *f = NULL;
-        char *im4p = NULL;
-        cleanup([&]{
-            safeFree(im4p);
-            safeFreeCustom(f, fclose);
-        });
-        size_t im4pSize = 0;
-        printf("Loading payload at=%s\n",cfg.ra1nra1nPath);
-        
-        assure(f = fopen(cfg.ra1nra1nPath, "rb"));
-        fseek(f, 0, SEEK_END);
-        assure(im4pSize = ftell(f));
-        fseek(f, 0, SEEK_SET);
-        assure(im4p = (char*)malloc(im4pSize));
-        assure(fread(im4p, 1, im4pSize, f) == im4pSize);
-                
-        printf("Sending payload...\n");
+    if (cfg.ra1nra1n.size()) {
+        info("Sending payload...");
 
         std::string loadAddr = idev.getEnv("loadaddr");
-        idev.sendComponent(im4p, im4pSize);
+        idev.sendComponent(cfg.ra1nra1n.data(), cfg.ra1nra1n.size());
 
-        std::string memcpyCommand = "memcpy 0x828000000 ";
+        std::string memcpyCommand = "memcpy 0x818000000 ";
         memcpyCommand += loadAddr;
         memcpyCommand += " 0x800000";
 
         idev.sendCommand(memcpyCommand);
     }
 
-    printf("Sending kernel...\n");
-    auto skernel = img4FromIM4PandIM4M(pkernel,im4m);
-    idev.sendComponent(skernel.buf(), skernel.size());
-
+    info("Sending kernel...");
+    if (isIMG4) {
+        auto skernel = img4FromIM4PandIM4M(pkernel,im4m);
+        idev.sendComponent(skernel.buf(), skernel.size());
+    }else{
+        idev.sendComponent(kernelData.data(), kernelData.size());
+    }
+    
     if (!cfg.nobootx) {
-        printf("Booting...\n");
+        info("Booting...");
         idev.setCheckpoint();
         idev.sendCommand("bootx");
         idev.waitForDisconnect(5000);
     }
 
-    printf("Done!\n");
-}
-
-
-void ra1nsn0w::dumpAPTicket(iOSDevice &idev, const char* shshOutPath){
-    char *buffer = NULL;
-    cleanup([&]{
-        safeFree(buffer);
-    });
-    int ret = 0;
-    buffer = (char*)malloc(0x800000);
-    memset(buffer, 0, 0x800000);
-
-    idev.sendCommand("setenv filesize 0x0");
-    ret = idev.usbReceive(buffer, 0x800000);
-
-
-    memset(buffer, 0, 0x800000);
-    idev.sendCommand("setenv filesize 0x800000");
-    idev.sendCommand("memload");
-    ret = idev.usbReceive(buffer, 0x800000);
-
-    
-    
-    
-    
-
-    reterror("todo");
+    info("Done!");
 }

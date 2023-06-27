@@ -11,6 +11,8 @@
 
 #include <iostream>
 #include <mutex>
+#include <vector>
+#include <stdint.h>
 #include <condition_variable>
 extern "C"{
 #include <libirecovery.h>
@@ -23,7 +25,7 @@ namespace ra1nsn0w{
     public:
 #pragma mark public types
         enum devicemode{
-            unknown,
+            unknown = 0,
             wtf,
             dfu,
             recovery,
@@ -36,19 +38,30 @@ namespace ra1nsn0w{
         irecv_device_event_context_t _irecv_e_ctx;
         devicemode _mode;
         uint64_t _ecid;
-        std::mutex _eventLock;
-        std::condition_variable _eventNotifier;
         irecv_client_t _cli;
         bool _didDisconnect;
+        std::string _dryRunDeviceProductType;
+        std::string _dryRunDeviceHardwareModel;
+        std::string _dryRunOutPath;
+        bool _dryRunDeviceSupportsIMG4;
+
+        std::mutex _eventLock;
+        std::condition_variable _eventNotifier;
 
 #pragma mark public methods
     public:
-        iOSDevice(uint64_t ecid = 0);
+        iOSDevice(uint64_t ecid = 0, bool waitForDevice = false, std::string dryRunDevice = "", std::string dryRunOutPath = "");
         ~iOSDevice();
         
         devicemode getDeviceMode();
         std::string getDeviceProductType();
         std::string getDeviceHardwareModel();
+        uint32_t getDeviceCPID();
+        uint32_t getDeviceBDID();
+        uint64_t getDeviceECID();
+        std::vector<uint8_t> getAPNonce();
+        std::vector<uint8_t> getSEPNonce();
+        bool supportsIMG4();
 
         void sendComponent(const void *buf, size_t size);
         void setCheckpoint();

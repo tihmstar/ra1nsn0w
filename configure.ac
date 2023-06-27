@@ -27,25 +27,83 @@ case $host_os in
   darwin* )
         CXXFLAGS+=" -stdlib=libc++"
         ;;
+  *mingw32*|*cygwin*)
+        AC_MSG_RESULT([${host_os}])
+        win32=true
+        LDFLAGS+=" -no-undefined"
+        ;;
 esac
 
 CXXFLAGS+=" -std=c++11"
 CFLAGS+=" -std=c11"
+LDFLAGS+=" -lpthread"
 
-PKG_CHECK_MODULES(libfragmentzip, libfragmentzip >= 60)
-PKG_CHECK_MODULES(libgeneral, libgeneral >= 32)
-PKG_CHECK_MODULES(libimg4tool, libimg4tool >= 192)
-PKG_CHECK_MODULES(libipatcher, libipatcher >= 77)
-PKG_CHECK_MODULES(libirecovery, libirecovery-1.0 >= 1.0.1)
-PKG_CHECK_MODULES(liboffsetfinder64, liboffsetfinder64 >= 122)
-PKG_CHECK_MODULES(libplist, libplist-2.0 >= 2.2.0)
-PKG_CHECK_MODULES(libzip, libzip >= 1.5.1)
+LIBGENERAL_REQUIRES_STR="libgeneral >= 62"
+LIBFRAGMENTZIP_REQUIRES_STR="libfragmentzip >= 72"
+LIBIMG4TOOL_REQUIRES_STR="libimg4tool >= 195"
+LIBIMG3TOOL_REQUIRES_STR="libimg3tool >= 10"
+LIBIPATCHER_REQUIRES_STR="libipatcher >= 84"
+LIBIRECOVERY_REQUIRES_STR="libirecovery-1.0 >= 1.0.0"
+LIBPATCHFINDER_REQUIRES_STR="libpatchfinder >= 12"
+LIBPLIST_REQUIRES_STR="libplist-2.0 >= 2.3.0"
+LIBTSSCHECKER_REQUIRES_STR="libtsschecker >= 330"
+OPENSSL_REQUIRES_STR="openssl"
+
+PKG_CHECK_MODULES(libgeneral, $LIBGENERAL_REQUIRES_STR)
+PKG_CHECK_MODULES(libfragmentzip, $LIBFRAGMENTZIP_REQUIRES_STR)
+PKG_CHECK_MODULES(libimg4tool, $LIBIMG4TOOL_REQUIRES_STR)
+PKG_CHECK_MODULES(libimg3tool, $LIBIMG3TOOL_REQUIRES_STR)
+PKG_CHECK_MODULES(libipatcher, $LIBIPATCHER_REQUIRES_STR)
+PKG_CHECK_MODULES(libirecovery, $LIBIRECOVERY_REQUIRES_STR)
+PKG_CHECK_MODULES(libpatchfinder, $LIBPATCHFINDER_REQUIRES_STR)
+PKG_CHECK_MODULES(libplist, $LIBPLIST_REQUIRES_STR)
+PKG_CHECK_MODULES(libtsschecker, $LIBTSSCHECKER_REQUIRES_STR)
+PKG_CHECK_MODULES(openssl, $OPENSSL_REQUIRES_STR, have_openssl=yes, have_openssl=no)
+
+AC_SUBST([libgeneral_requires], [$LIBGENERAL_REQUIRES_STR])
+AC_SUBST([libfragmentzip_requires], [$LIBFRAGMENTZIP_REQUIRES_STR])
+AC_SUBST([libimg3tool_requires], [$LIBIMG3TOOL_REQUIRES_STR])
+AC_SUBST([libimg4tool_requires], [$LIBIMG4TOOL_REQUIRES_STR])
+AC_SUBST([libipatcher_requires], [$LIBIPATCHER_REQUIRES_STR])
+AC_SUBST([libirecovery_requires], [$LIBIRECOVERY_REQUIRES_STR])
+AC_SUBST([libpatchfinder_requires], [$LIBPATCHFINDER_REQUIRES_STR])
+AC_SUBST([libplist_requires], [$LIBPLIST_REQUIRES_STR])
+AC_SUBST([libtsschecker_requires], [$LIBTSSCHECKER_REQUIRES_STR])
 
 
+AC_ARG_ENABLE([build-as-lib],
+            [AS_HELP_STRING([--enable-build-as-lib],
+            [enable building as lib(default is no)])],
+            [build_as_lib=yes],
+            [build_as_lib=no])
+
+AC_ARG_ENABLE([debug],
+            [AS_HELP_STRING([--enable-debug],
+            [enable debug build(default is no)])],
+            [debug_build=true],
+            [debug_build=false])
 
 
+if test "$debug_build" = true; then
+  echo "*** Note: debug build requested ***"
+  CFLAGS+=" -g -O0 -DDEBUG=1"
+  CXXFLAGS+=" -g -O0 -DDEBUG=1"
+fi
+
+AM_CONDITIONAL([BUILD_AS_LIB], [test "x$build_as_lib" = "xyes"])
+
+AM_CONDITIONAL([HAVE_OPENSSL], [test "x$have_openssl" = "xyes"])
+
+if test "x$have_openssl" == "xyes"; then
+  AC_DEFINE(HAVE_OPENSSL, [1], [Define if you have openssl])
+fi
+
+# Check for functions
+AC_CHECK_FUNCS([memmem asprintf strtoul_l])
 
 AC_CONFIG_FILES([Makefile
+                 include/Makefile
+                 libra1nsn0w.pc
                  ra1nsn0w/Makefile])
 AC_OUTPUT
 
@@ -53,7 +111,9 @@ echo "
 Configuration for $PACKAGE-$VERSION:
 -------------------------------------------
 
-  install prefix ..........: $prefix"
+  install prefix ..........: $prefix
+  have openssl ............: $have_openssl
+  build as lib ............: $build_as_lib"
 
 echo "  compiler ................: ${CC}
 

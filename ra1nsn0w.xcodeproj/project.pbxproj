@@ -7,25 +7,29 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		8791271224D098180071283F /* liboffsetfinder64.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87974BF623783D1D00DC1599 /* liboffsetfinder64.0.dylib */; };
-		8791271324D098180071283F /* liboffsetfinder64.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87974BF623783D1D00DC1599 /* liboffsetfinder64.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		2A9F8E3829B3949E00D57851 /* libtsschecker.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A9F8E3729B3949E00D57851 /* libtsschecker.0.dylib */; };
+		2A9F8E3929B3949E00D57851 /* libtsschecker.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 2A9F8E3729B3949E00D57851 /* libtsschecker.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		2AD2CFC62971E74600F8D5E4 /* libcrypto.3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2AD2CFC52971E74600F8D5E4 /* libcrypto.3.dylib */; };
+		2AD2CFC72971E74600F8D5E4 /* libcrypto.3.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 2AD2CFC52971E74600F8D5E4 /* libcrypto.3.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		872846DC25AEF80D00385BCA /* libirecovery-1.0.3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 872846DB25AEF80D00385BCA /* libirecovery-1.0.3.dylib */; };
+		872846DD25AEF80D00385BCA /* libirecovery-1.0.3.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 872846DB25AEF80D00385BCA /* libirecovery-1.0.3.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		872846DF25AEF81E00385BCA /* libplist-2.0.3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 872846DE25AEF81E00385BCA /* libplist-2.0.3.dylib */; };
+		872846E025AEF81E00385BCA /* libplist-2.0.3.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 872846DE25AEF81E00385BCA /* libplist-2.0.3.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		87EBA7122376F32A00AB878C /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA7112376F32A00AB878C /* main.cpp */; };
 		87EBA71A2376F39400AB878C /* libgeneral.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA7192376F39400AB878C /* libgeneral.0.dylib */; };
 		87EBA71B2376F39400AB878C /* libgeneral.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA7192376F39400AB878C /* libgeneral.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		87EBA71F2376FA4C00AB878C /* ra1nsn0w.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA71D2376FA4C00AB878C /* ra1nsn0w.cpp */; };
-		87EBA7242376FC0400AB878C /* libplist.3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA7232376FC0400AB878C /* libplist.3.dylib */; };
-		87EBA7252376FC0400AB878C /* libplist.3.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA7232376FC0400AB878C /* libplist.3.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		87EBA72C2376FC4A00AB878C /* libzip.5.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA72B2376FC4A00AB878C /* libzip.5.0.dylib */; };
-		87EBA72D2376FC4A00AB878C /* libzip.5.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA72B2376FC4A00AB878C /* libzip.5.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		87EBA72F2376FC5C00AB878C /* libipatcher.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA72E2376FC5C00AB878C /* libipatcher.0.dylib */; };
 		87EBA7302376FC5C00AB878C /* libipatcher.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA72E2376FC5C00AB878C /* libipatcher.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		87EBA7362376FF1800AB878C /* iOSDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA7342376FF1800AB878C /* iOSDevice.cpp */; };
-		87EBA7382377021E00AB878C /* libirecovery.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA7372377021E00AB878C /* libirecovery.2.dylib */; };
-		87EBA7392377021E00AB878C /* libirecovery.2.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA7372377021E00AB878C /* libirecovery.2.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		87EBA73B23772B9900AB878C /* libfragmentzip.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA73A23772B9900AB878C /* libfragmentzip.0.dylib */; };
 		87EBA73C23772B9900AB878C /* libfragmentzip.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA73A23772B9900AB878C /* libfragmentzip.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		87EBA73E2377362600AB878C /* libimg4tool.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA73D2377362600AB878C /* libimg4tool.0.dylib */; };
 		87EBA73F2377362600AB878C /* libimg4tool.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA73D2377362600AB878C /* libimg4tool.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		87F83B4D26986486006D5C45 /* libpatchfinder.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87F83B4C26986486006D5C45 /* libpatchfinder.0.dylib */; };
+		87F83B4E26986486006D5C45 /* libpatchfinder.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87F83B4C26986486006D5C45 /* libpatchfinder.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		87F83B58269D8579006D5C45 /* libimg3tool.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87F83B57269D8579006D5C45 /* libimg3tool.0.dylib */; };
+		87F83B59269D8579006D5C45 /* libimg3tool.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87F83B57269D8579006D5C45 /* libimg3tool.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -44,14 +48,16 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				87EBA7252376FC0400AB878C /* libplist.3.dylib in Embed Libraries */,
-				8791271324D098180071283F /* liboffsetfinder64.0.dylib in Embed Libraries */,
+				87F83B59269D8579006D5C45 /* libimg3tool.0.dylib in Embed Libraries */,
+				2AD2CFC72971E74600F8D5E4 /* libcrypto.3.dylib in Embed Libraries */,
 				87EBA73F2377362600AB878C /* libimg4tool.0.dylib in Embed Libraries */,
-				87EBA72D2376FC4A00AB878C /* libzip.5.0.dylib in Embed Libraries */,
 				87EBA73C23772B9900AB878C /* libfragmentzip.0.dylib in Embed Libraries */,
+				87F83B4E26986486006D5C45 /* libpatchfinder.0.dylib in Embed Libraries */,
 				87EBA7302376FC5C00AB878C /* libipatcher.0.dylib in Embed Libraries */,
-				87EBA7392377021E00AB878C /* libirecovery.2.dylib in Embed Libraries */,
+				872846DD25AEF80D00385BCA /* libirecovery-1.0.3.dylib in Embed Libraries */,
+				872846E025AEF81E00385BCA /* libplist-2.0.3.dylib in Embed Libraries */,
 				87EBA71B2376F39400AB878C /* libgeneral.0.dylib in Embed Libraries */,
+				2A9F8E3929B3949E00D57851 /* libtsschecker.0.dylib in Embed Libraries */,
 			);
 			name = "Embed Libraries";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -59,12 +65,17 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2A9F8E3729B3949E00D57851 /* libtsschecker.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtsschecker.0.dylib; path = ../../../../usr/local/lib/libtsschecker.0.dylib; sourceTree = "<group>"; };
+		2AD2CFC52971E74600F8D5E4 /* libcrypto.3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.3.dylib; path = ../../../../usr/local/lib/libcrypto.3.dylib; sourceTree = "<group>"; };
+		87091E4C266E307C00C7C66C /* iOSDevice.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = iOSDevice.hpp; path = include/ra1nsn0w/iOSDevice.hpp; sourceTree = SOURCE_ROOT; };
+		87091E4D266E307C00C7C66C /* ra1nsn0w.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = ra1nsn0w.hpp; path = include/ra1nsn0w/ra1nsn0w.hpp; sourceTree = SOURCE_ROOT; };
+		872846DB25AEF80D00385BCA /* libirecovery-1.0.3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libirecovery-1.0.3.dylib"; path = "../../../../usr/local/lib/libirecovery-1.0.3.dylib"; sourceTree = "<group>"; };
+		872846DE25AEF81E00385BCA /* libplist-2.0.3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libplist-2.0.3.dylib"; path = "../../../../usr/local/lib/libplist-2.0.3.dylib"; sourceTree = "<group>"; };
 		87974BF623783D1D00DC1599 /* liboffsetfinder64.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = liboffsetfinder64.0.dylib; path = ../../../../usr/local/lib/liboffsetfinder64.0.dylib; sourceTree = "<group>"; };
 		87EBA70E2376F32A00AB878C /* ra1nsn0w */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ra1nsn0w; sourceTree = BUILT_PRODUCTS_DIR; };
 		87EBA7112376F32A00AB878C /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		87EBA7192376F39400AB878C /* libgeneral.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libgeneral.0.dylib; path = ../../../../usr/local/lib/libgeneral.0.dylib; sourceTree = "<group>"; };
 		87EBA71D2376FA4C00AB878C /* ra1nsn0w.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ra1nsn0w.cpp; sourceTree = "<group>"; };
-		87EBA71E2376FA4C00AB878C /* ra1nsn0w.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ra1nsn0w.hpp; sourceTree = "<group>"; };
 		87EBA7232376FC0400AB878C /* libplist.3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libplist.3.dylib; path = ../../../../usr/local/lib/libplist.3.dylib; sourceTree = "<group>"; };
 		87EBA7262376FC1900AB878C /* libcryptopp.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcryptopp.dylib; path = ../../../../usr/local/Cellar/cryptopp/8.1.0/lib/libcryptopp.dylib; sourceTree = "<group>"; };
 		87EBA7292376FC2800AB878C /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
@@ -72,10 +83,11 @@
 		87EBA72E2376FC5C00AB878C /* libipatcher.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libipatcher.0.dylib; path = ../../../../usr/local/lib/libipatcher.0.dylib; sourceTree = "<group>"; };
 		87EBA7312376FC9E00AB878C /* libcrypto.1.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.1.0.0.dylib; path = ../../../../usr/local/Cellar/openssl/1.0.2t/lib/libcrypto.1.0.0.dylib; sourceTree = "<group>"; };
 		87EBA7342376FF1800AB878C /* iOSDevice.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = iOSDevice.cpp; sourceTree = "<group>"; };
-		87EBA7352376FF1800AB878C /* iOSDevice.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = iOSDevice.hpp; sourceTree = "<group>"; };
 		87EBA7372377021E00AB878C /* libirecovery.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libirecovery.2.dylib; path = ../../../../usr/local/lib/libirecovery.2.dylib; sourceTree = "<group>"; };
 		87EBA73A23772B9900AB878C /* libfragmentzip.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libfragmentzip.0.dylib; path = ../../../../usr/local/lib/libfragmentzip.0.dylib; sourceTree = "<group>"; };
 		87EBA73D2377362600AB878C /* libimg4tool.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libimg4tool.0.dylib; path = ../../../../usr/local/lib/libimg4tool.0.dylib; sourceTree = "<group>"; };
+		87F83B4C26986486006D5C45 /* libpatchfinder.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpatchfinder.0.dylib; path = ../../../../usr/local/lib/libpatchfinder.0.dylib; sourceTree = "<group>"; };
+		87F83B57269D8579006D5C45 /* libimg3tool.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libimg3tool.0.dylib; path = ../../../../usr/local/lib/libimg3tool.0.dylib; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,14 +95,16 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				87EBA7242376FC0400AB878C /* libplist.3.dylib in Frameworks */,
-				8791271224D098180071283F /* liboffsetfinder64.0.dylib in Frameworks */,
+				87F83B58269D8579006D5C45 /* libimg3tool.0.dylib in Frameworks */,
+				2AD2CFC62971E74600F8D5E4 /* libcrypto.3.dylib in Frameworks */,
 				87EBA73E2377362600AB878C /* libimg4tool.0.dylib in Frameworks */,
-				87EBA72C2376FC4A00AB878C /* libzip.5.0.dylib in Frameworks */,
 				87EBA73B23772B9900AB878C /* libfragmentzip.0.dylib in Frameworks */,
+				87F83B4D26986486006D5C45 /* libpatchfinder.0.dylib in Frameworks */,
 				87EBA72F2376FC5C00AB878C /* libipatcher.0.dylib in Frameworks */,
-				87EBA7382377021E00AB878C /* libirecovery.2.dylib in Frameworks */,
+				872846DC25AEF80D00385BCA /* libirecovery-1.0.3.dylib in Frameworks */,
+				872846DF25AEF81E00385BCA /* libplist-2.0.3.dylib in Frameworks */,
 				87EBA71A2376F39400AB878C /* libgeneral.0.dylib in Frameworks */,
+				2A9F8E3829B3949E00D57851 /* libtsschecker.0.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -117,9 +131,9 @@
 		87EBA7102376F32A00AB878C /* ra1nsn0w */ = {
 			isa = PBXGroup;
 			children = (
-				87EBA7352376FF1800AB878C /* iOSDevice.hpp */,
+				87091E4C266E307C00C7C66C /* iOSDevice.hpp */,
 				87EBA7342376FF1800AB878C /* iOSDevice.cpp */,
-				87EBA71E2376FA4C00AB878C /* ra1nsn0w.hpp */,
+				87091E4D266E307C00C7C66C /* ra1nsn0w.hpp */,
 				87EBA71D2376FA4C00AB878C /* ra1nsn0w.cpp */,
 				87EBA7112376F32A00AB878C /* main.cpp */,
 			);
@@ -129,6 +143,12 @@
 		87EBA7182376F39400AB878C /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				2A9F8E3729B3949E00D57851 /* libtsschecker.0.dylib */,
+				2AD2CFC52971E74600F8D5E4 /* libcrypto.3.dylib */,
+				87F83B57269D8579006D5C45 /* libimg3tool.0.dylib */,
+				87F83B4C26986486006D5C45 /* libpatchfinder.0.dylib */,
+				872846DE25AEF81E00385BCA /* libplist-2.0.3.dylib */,
+				872846DB25AEF80D00385BCA /* libirecovery-1.0.3.dylib */,
 				87974BF623783D1D00DC1599 /* liboffsetfinder64.0.dylib */,
 				87EBA73D2377362600AB878C /* libimg4tool.0.dylib */,
 				87EBA73A23772B9900AB878C /* libfragmentzip.0.dylib */,
@@ -324,6 +344,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+					XCODE,
+					HAVE_OPENSSL,
+					HAVE_STRTOUL_L,
+				);
 				HEADER_SEARCH_PATHS = /usr/local/include;
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";

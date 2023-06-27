@@ -27,3 +27,6 @@ Index
 stamp-h2
 *.pc
 ra1nsn0w/ra1nsn0w
+configure~
+project.xcworkspace
+xcshareddata
