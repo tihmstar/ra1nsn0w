@@ -15,6 +15,7 @@
 #include <libpatchfinder/kernelpatchfinder/kernelpatchfinder64.hpp>
 #include <libpatchfinder/kernelpatchfinder/kernelpatchfinder32.hpp>
 #include <img3tool/img3tool.hpp>
+#include <tsschecker/tsschecker.hpp>
 #include <tsschecker/TssRequest.hpp>
 #include <tsschecker/TSSException.hpp>
 #include <sys/stat.h>
@@ -26,6 +27,10 @@ extern "C"{
 
 #ifdef HAVE_OPENSSL
 #include <openssl/sha.h>
+#endif
+
+#ifdef HAVE_IMG1TOOL
+#include <img1tool/img1tool.hpp>
 #endif
 
 using namespace tihmstar;
@@ -172,6 +177,8 @@ int iBootPatchFunc(char *file, size_t size, void *param){
         auto patch = ibpf->get_sigcheck_patch();
         patches.insert(patches.end(), patch.begin(), patch.end());
     }
+    
+    addiBootpatch(wtf_pwndfu, get_wtf_pwndfu_patch, "wtf_pwndfu")
 
     if (ibpf->has_recovery_console()) {
         bcfg->didProcessKernelLoader = true;
@@ -191,6 +198,7 @@ int iBootPatchFunc(char *file, size_t size, void *param){
         addiBootpatch(iboot_sep_skip_lock, get_tz0_lock_patch, "get_tz0_lock_patch")
         addiBootpatch(iboot_sep_skip_bpr, get_skip_set_bpr_patch, "get_skip_set_bpr_patch")
         addiBootpatch(iboot_sep_force_local, get_force_septype_local_patch, "get_force_septype_local_patch")
+        addiBootpatch(iboot_sep_force_raw, get_sep_load_raw_patch, "get_sep_load_raw_patch")
         addiBootpatch(iboot_largepicture, get_large_picture_patch, "get_large_picture_patch")
         addiBootpatch(iboot_atv4k_enable_uart, get_atv4k_enable_uart_patch, "get_atv4k_enable_uart_patch")
         addiBootpatch(iboot_always_production, get_always_production_patch, "get_always_production_patch")
@@ -327,6 +335,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
 
     uint64_t cpid = 0;
     bool isIMG4 = idev.supportsIMG4();
+    bool isRestorePlist = false;
     
     img4tool::ASN1DERElement piBSS;
     img4tool::ASN1DERElement piBEC;
@@ -347,7 +356,13 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
     if (cfg.isOtaFirmware) {
         retassure(!fragmentzip_download_to_memory(fzinfo, "AssetData/boot/BuildManifest.plist", &buildmanifestBuf, &buildmanifestBufSize, fragmentzip_callback),"Failed to load BuildManifest.plist");
     }else{
-        retassure(!fragmentzip_download_to_memory(fzinfo, "BuildManifest.plist", &buildmanifestBuf, &buildmanifestBufSize, fragmentzip_callback),"Failed to load BuildManifest.plist");
+        try {
+            retassure(!fragmentzip_download_to_memory(fzinfo, "BuildManifest.plist", &buildmanifestBuf, &buildmanifestBufSize, fragmentzip_callback),"Failed to load BuildManifest.plist");
+        } catch (...) {
+            //iOS <= 3.x doesn't have BuildManifest.plist
+            retassure(!fragmentzip_download_to_memory(fzinfo, "Restore.plist", &buildmanifestBuf, &buildmanifestBufSize, fragmentzip_callback),"Failed to load Restore.plist");
+            isRestorePlist = true;
+        }
     }
         
     plist_from_memory(buildmanifestBuf, static_cast<uint32_t>(buildmanifestBufSize), &buildmanifest, NULL);
@@ -364,6 +379,54 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
             if (cfg.isSRD) variant = "Research";
         }
     }
+    if (isRestorePlist){
+        buildidentity = tsschecker::buildIdentityFromRestorePlist(buildmanifest);
+    }
+    if (idev.getDeviceMode() == iOSDevice::wtf){
+        //boot WTF image
+        char *wtfBuf = NULL;
+        cleanup([&]{
+            safeFree(wtfBuf);
+        });
+        size_t wtfBufSize = 0;
+        retassure(!fragmentzip_download_to_memory(fzinfo, "Firmware/dfu/WTF.s5l8900xall.RELEASE.dfu", &wtfBuf, &wtfBufSize, fragmentzip_callback),"Failed to load WTF image");
+        std::vector<uint8_t> wtfpayload;
+        {
+#ifdef HAVE_IMG1TOOL
+            //patch WTF image
+            wtfpayload = img1tool::getPayloadFromIMG1(wtfBuf, wtfBufSize);
+            
+            info("Patching WTF...");
+            bootconfig wtf_bootcfg = bootcfg;
+            launchConfig wtf_launchcfg = *bootcfg.launchcfg;
+            wtf_bootcfg.curPatchComponent = '.ftw'; //wtf. (not actually a thing)
+            {
+                std::string orig_s = "IBFL:%02X";
+                std::string new_s  = "SIGP:[WTF]";
+                orig_s.push_back('\0');
+                orig_s.push_back('\0');
+                new_s.push_back('\0');
+                wtf_launchcfg.replacePatches['.ftw'].push_back({orig_s,new_s});
+            }
+            wtf_bootcfg.launchcfg = &wtf_launchcfg;
+            retassure(!iBootPatchFunc((char*)wtfpayload.data(), wtfpayload.size(), (void*)&wtf_bootcfg), "Failed to patch WTF");
+            wtfpayload = img1tool::createIMG1FromPayloadWithPwnage2(wtfpayload);
+#else
+            info("Not patching WTF. SIGNATURE CHECKS ARE STILL IN PLACE!!!");
+            wtfpayload = {wtfBuf,wtfBuf+wtfBufSize};
+#endif
+        }
+        info("Sending WTF...");
+        idev.setCheckpoint();
+        idev.sendComponent(wtfpayload.data(), wtfpayload.size());
+        idev.waitForReconnect(20000);
+    }
+    
+    if (bootcfg.launchcfg->justDFU && idev.getDeviceMode() == iOSDevice::dfu) {
+        info("Device reached DFU mode, done!");
+        return;
+    }
+    
     if (!buildidentity) buildidentity = tsschecker::TssRequest::getBuildIdentityForDevice(buildmanifest, idev.getDeviceCPID(), idev.getDeviceBDID(), variant);
     retassure(buildidentity, "Failed to find buildidentity for variant '%s'",variant.c_str());
     {
@@ -434,13 +497,17 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
             iBSSKeys = libipatcher::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, ibssPath, cpid, cfg.customKeysZipUrl);
         } catch (tihmstar::exception &e) {
             info("libipatcher::getFirmwareKeyForPath failed with error:\n%s",e.dumpStr().c_str());
-            reterror("Failed to get iBSS keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
+            if (idev.getDeviceCPID() != 0x8900){
+                reterror("Failed to get iBSS keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
+            }
         }
         try {
             iBECKeys = libipatcher::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, ibecPath, cpid, cfg.customKeysZipUrl);
         } catch (tihmstar::exception &e) {
             info("libipatcher::getFirmwareKeyForPath failed with error:\n%s",e.dumpStr().c_str());
-            reterror("Failed to get iBSS keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
+            if (idev.getDeviceCPID() != 0x8900){
+                reterror("Failed to get iBEC keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
+            }
         }
         if (!bootcfg.launchcfg->justiBoot) {
             try {
@@ -583,12 +650,13 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
 
                         addKernelpatch(kpatch_nuke_sandbox, get_nuke_sandbox_patch, "nuke-sandbox") else addKernelpatch(kpatch_sandbox, get_sandbox_patch, "sandbox")
                         
-                        addKernelpatch(kpatch_i_can_has_debugger, get_i_can_has_debugger_patch, "i_can_has_debugger")
-                        addKernelpatch(kpatch_force_nand_writeable, get_force_NAND_writeable_patch, "force_NAND_writeable")
+                        addKernelpatch(kpatch_i_can_has_debugger, get_i_can_has_debugger_patch, "get_i_can_has_debugger_patch")
+                        addKernelpatch(kpatch_force_nand_writeable, get_force_NAND_writeable_patch, "get_force_NAND_writeable_patch")
                         addKernelpatch(kpatch_always_get_task_allow, get_always_get_task_allow_patch, "always_get_task_allow")
-                        addKernelpatch(kpatch_allow_uid, get_allow_UID_key_patch, "allow_UID_key");
-                        addKernelpatch(kpatch_add_read_bpr, get_read_bpr_patch, "read_bpr_patch");
-                        addKernelpatch(kpatch_no_ramdisk_detect, get_ramdisk_detection_patch, "kpatch_no_ramdisk_detect");
+                        addKernelpatch(kpatch_allow_uid, get_allow_UID_key_patch, "get_allow_UID_key_patch");
+                        addKernelpatch(kpatch_add_read_bpr, get_read_bpr_patch, "get_read_bpr_patch");
+                        addKernelpatch(kpatch_no_ramdisk_detect, get_ramdisk_detection_patch, "get_ramdisk_detection_patch");
+                        addKernelpatch(kpatch_noemf, get_noemf_patch, "get_noemf_patch");
                         addKernelpatch(kpatch_get_kernelbase_syscall, get_kernelbase_syscall_patch, "get_kernelbase_syscall_patch");
                         addKernelpatch(kpatch_tfp0, get_tfp0_patch, "get_tfp0_patch");
                         addKernelpatch(kpatch_tfp_unrestrict, get_tfp_anyone_allow_patch, "get_tfp_anyone_allow_patch");
@@ -819,7 +887,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
                 cleanup([&]{
                     safeFreeCustom(f, fclose);
                 });
-                info("Writing signed RestoreSEP to fil '%s'",cfg.iboot_send_signed_sep.c_str());
+                info("Writing signed RestoreSEP to file '%s'",cfg.iboot_send_signed_sep.c_str());
                 retassure(f = fopen(cfg.iboot_send_signed_sep.c_str(), "w"), "Failed to open file '%s'",cfg.iboot_send_signed_sep.c_str());
                 fwrite(prsep.buf(), 1, prsep.size(), f);
             }
@@ -870,20 +938,28 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
     got_device_in_ibss:;
 #endif
     }else if (bootcfg.skipiBEC){
-        retassure(isIMG4, "unexpected skipiBEC on IMG3 device");
-        /*
-         we are already in (pwn???) recovery, but this device has only 1 stage bootloader
-         in order to reboot to iBSS we actually need to rename the image to iBEC
-         */
-        info("Renaming iBSS to iBEC...");
-        piBEC = img4tool::renameIM4P(piBSS, "ibec");
-        auto siBEC = img4FromIM4PandIM4M(piBEC,im4m);
-        idev.setCheckpoint();
-        idev.sendComponent(siBEC.buf(), siBEC.size());
-        if (idev.getDeviceMode() == iOSDevice::recovery) {
-            idev.sendCommand("go");
+        if (isIMG4) {
+            /*
+             we are already in (pwn???) recovery, but this device has only 1 stage bootloader
+             in order to reboot to iBSS we actually need to rename the image to iBEC
+             */
+            info("Renaming iBSS to iBEC...");
+            piBEC = img4tool::renameIM4P(piBSS, "ibec");
+            auto siBEC = img4FromIM4PandIM4M(piBEC,im4m);
+            idev.setCheckpoint();
+            idev.sendComponent(siBEC.buf(), siBEC.size());
+            if (idev.getDeviceMode() == iOSDevice::recovery) {
+                idev.sendCommand("go");
+            }
+            idev.waitForReconnect(30000);
+        }else{
+            idev.setCheckpoint();
+            idev.sendComponent(ibssData.data(), ibssData.size());
+            if (idev.getDeviceMode() == iOSDevice::recovery) {
+                idev.sendCommand("go");
+            }
+            idev.waitForReconnect(30000);
         }
-        idev.waitForReconnect(30000);
     }
     
     if (idev.getDeviceMode() == iOSDevice::recovery) {
@@ -1090,8 +1166,8 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
 
             if (!ramdiskNeedsPacking){
                 try {
-                    auto type = img3tool::getValFromIMG3((*realRDSK).data(), (*realRDSK).size(), 'TYPE');
-                    retassure(type.size() == 4 && *(uint32_t*)type.data() == 'rdsk', "TYPE not 'rdsk', this is bad!");
+                    uint32_t type = img3tool::getImg3ImageType((*realRDSK).data(), (*realRDSK).size());
+                    retassure(type == 'rdsk', "TYPE not 'rdsk', this is bad!");
                     ramdiskBufPtr = (*realRDSK).data();
                     ramdiskBufSize = (*realRDSK).size();
                 } catch (tihmstar::exception &e) {

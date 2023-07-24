@@ -76,7 +76,7 @@ void tihmstar::ra1nsn0w::irecv_event_cb(const irecv_device_event_t* event, void 
             debug("IRECV_DEVICE_ADD: set ecid to %llu\n",idev->_ecid);
         }
 
-        if (idev->_ecid && event->device_info->ecid == idev->_ecid) {
+        if ((idev->_ecid && event->device_info->ecid == idev->_ecid) || event->mode == IRECV_K_WTF_MODE) {
             idev->_eventLock.lock();
             switch (event->mode) {
                 case IRECV_K_WTF_MODE:
@@ -99,7 +99,7 @@ void tihmstar::ra1nsn0w::irecv_event_cb(const irecv_device_event_t* event, void 
             idev->_eventNotifier.notify_all();
         }
     } else if (event->type == IRECV_DEVICE_REMOVE) {
-        if (idev->_ecid && event->device_info->ecid == idev->_ecid) {
+        if (event->device_info->ecid == idev->_ecid && (idev->_ecid || idev->_mode == iOSDevice::wtf)) {
             idev->_eventLock.lock();
             idev->_didDisconnect = true;
             idev->_mode = iOSDevice::unknown;
@@ -177,7 +177,7 @@ iOSDevice::iOSDevice(uint64_t ecid, bool waitForDevice, std::string dryRunDevice
         }
     }
     retassure(_mode != iOSDevice::unknown ,"ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
-    retassure(_mode == iOSDevice::dfu || _mode == iOSDevice::recovery, "ERROR: Device 0x%016llx is not in DFU or recovery mode\n",_ecid);
+    retassure(_mode == iOSDevice::dfu || _mode == iOSDevice::recovery || _mode == iOSDevice::wtf, "ERROR: Device 0x%016llx is not in DFU or recovery mode\n",_ecid);
     elock.unlock();
     
     retassure(!irecv_open_with_ecid(&_cli, _ecid), "Failed to open connection to device");

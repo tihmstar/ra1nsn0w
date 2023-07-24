@@ -9,13 +9,18 @@ AM_CXXFLAGS+=$(openssl_CFLAGS)
 AM_LDFLAGS+=$(openssl_LIBS)
 endif
 
+if HAVE_IMG1TOOL
+AM_CFLAGS+=$(libimg1tool_CFLAGS)
+AM_CXXFLAGS+=$(libimg1tool_CFLAGS)
+AM_LDFLAGS+=$(libimg1tool_LIBS)
+endif
+
 bin_PROGRAMS = ra1nsn0w
 
 ra1nsn0w_CFLAGS = $(AM_CFLAGS)
 ra1nsn0w_CXXFLAGS = $(AM_CXXFLAGS)
 ra1nsn0w_LDFLAGS = $(AM_LDFLAGS)
 
-if BUILD_AS_LIB
 lib_LTLIBRARIES = libra1nsn0w.la
 
 libra1nsn0w_la_CFLAGS = $(AM_CFLAGS)
@@ -26,6 +31,3 @@ ra1nsn0w_LDADD = libra1nsn0w.la
 libra1nsn0w_la_SOURCES = iOSDevice.cpp ra1nsn0w.cpp
 
 ra1nsn0w_SOURCES = 	main.cpp
-else
-ra1nsn0w_SOURCES = 	main.cpp iOSDevice.cpp ra1nsn0w.cpp
-endif

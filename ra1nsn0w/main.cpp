@@ -52,6 +52,7 @@ static struct option longopts[] = {
     /* Behavior config: */
     { "variant",                        required_argument,      NULL, 'V' },
     { "nobootx",                        no_argument,            NULL,  0  },
+    { "just-dfu",                       no_argument,            NULL,  0  },
     { "just-iboot",                     no_argument,            NULL,  0  },
     { "decrypt-devicetree",             no_argument,            NULL,  0  },
     { "iboot-as-ibec",                  no_argument,            NULL,  0  },
@@ -91,10 +92,12 @@ static struct option longopts[] = {
     { "ipatch-memcpy",                  optional_argument,      NULL,  0  },
     { "ipatch-nvram-unlock",            optional_argument,      NULL,  0  },
     { "ipatch-sep-force-local",         optional_argument,      NULL,  0  },
+    { "ipatch-sep-force-raw",           optional_argument,      NULL,  0  },
     { "ipatch-sep-skip-bpr",            optional_argument,      NULL,  0  },
     { "ipatch-sep-skip-lock",           optional_argument,      NULL,  0  },
+    { "ipatch-wtf-pwndfu",              optional_argument,      NULL,  0  },
     { "ra1nra1n",                       required_argument,      NULL,  0  },
-
+    
     /* Kernel patches: */
     { "kernel-nopatch",                 no_argument,            NULL,  0  },
     { "kpatch-codesignature",           optional_argument,      NULL,  0  },
@@ -107,6 +110,7 @@ static struct option longopts[] = {
     { "kpatch-allow-uid",               optional_argument,      NULL,  0  },
     { "kpatch-add-read-bpr",            optional_argument,      NULL,  0  },
     { "kpatch-no-ramdisk-detect",       optional_argument,      NULL,  0  },
+    { "kpatch-noemf",                   optional_argument,      NULL,  0  },
     { "kpatch-get-kernelbase-syscall",  optional_argument,      NULL,  0  },
     { "kpatch-tfp0",                    optional_argument,      NULL,  0  },
     { "kpatch-tfp-unrestrict",          optional_argument,      NULL,  0  },
@@ -300,6 +304,7 @@ void cmd_help(){
     printf("  -V, --variant <VARIANT>\t\t\tSpecify restore variant to use\n");
     printf("      --decrypt-devicetree\t\t\tSend devicetree decrypted (Usually we wouldn't touch that)\n");
     printf("      --iboot-as-ibect\t\t\t\tBoot iBoot instead of iBEC\n");
+    printf("      --just-dfu\t\t\t\tStop in DFU mode\n");
     printf("      --just-iboot\t\t\t\tOnly boot to iBoot, do not send anything to it\n");
     printf("      --nobootx\t\t\t\t\tDon't run \"bootx\" command\n");
     printf("      --no-decrypt\t\t\t\tDo not decrypt files\n");
@@ -324,7 +329,7 @@ void cmd_help(){
     printf("  -b, --boot-args ARGS\t\t\t\tSpecify kernel bootargs\n");
     printf("      --iboot-nopatch\t\t\t\tDon't modify iBoot (iBSS/iBEC) IM4P and send as it is (only rename to rkrn)\n");
     printf("      --iboot-no-sigpatch\t\t\tDon't apply iBSS/iBEC sigpatches (WARNING: device will not boot past this bootloader!)\n");
-    printf("      --iboot-send-signed-sep\t\tGet a valid ticket and send RestoreSEP\n");
+    printf("      --iboot-send-signed-sep\tGet a valid ticket and send RestoreSEP\n");
     printf("      --ipatch-add-rw-and-rx-mappings\t\tSets iBoot block writeable at 0x2000000 and loadaddr block executable at 0x4000000\n");
     printf("      --ipatch-always-production\t\tPretend we're in production mode even though we may be demoted\n");
     printf("      --ipatch-always-sepfw-booted\t\tAlways set 'sepfw-booted' in devicetree\n");
@@ -339,8 +344,10 @@ void cmd_help(){
     printf("      --ipatch-memcpy\t\t\t\tReplace reboot with memcpy\n");
     printf("      --ipatch-nvram-unlock\t\t\tAllows reading and writing all nvram vars\n");
     printf("      --ipatch-sep-force-local\t\t\tForce booting sepi instead of rsep\n");
+    printf("      --ipatch-sep-force-raw\t\t\tForce loading raw rsep\n");
     printf("      --ipatch-sep-skip-bpr\t\t\tDon't set SEP BPR by iBoot\n");
     printf("      --ipatch-sep-skip-lock\t\t\tDon't lock tz0 registers by iBoot\n");
+    printf("      --ipatch-wtf-pwndfu\t\t\tPatch WTF image to act as PWNDFU\n");
     printf("      --ra1nra1n <path>\t\t\t\tExecute payload before jumping to kernel\n");
 
     printf("\nKernel patches:\n");
@@ -358,6 +365,7 @@ void cmd_help(){
     printf("     --kpatch-i_can_has_debugger\t\tPatch i_can_has_debugger = 1\n");
     printf("     --kpatch-mount\t\t\t\tAllow mounting / as rw\n");
     printf("     --kpatch-no-ramdisk-detect\t\t\tPatch detection of 'rd=md0' in kernel\n");
+    printf("     --kpatch-noemf\t\t\tDisable kernel EMF decryption\n");
     printf("     --kpatch-nuke-sandbox\t\t\tCompletely nuke sanbox by nulling ALL mac_policy_ops fields\n");
     printf("     --kpatch-root-from-sealed-apfs\t\tAllow rooting from sealed live APFS\n");
     printf("     --kpatch-sandbox\t\t\t\tNeuter sanbox by nulling common mac_policy_ops fields\n");
@@ -428,6 +436,8 @@ int main_r(int argc, const char * argv[]) {
                     cfg.decrypt_devicetree = true;
                 }else if (curopt == "iboot-as-ibec") {
                     cfg.boot_iboot_instead_of_ibec = true;
+                }else if (curopt == "just-dfu") {
+                    cfg.justDFU = true;
                 }else if (curopt == "just-iboot") {
                     cfg.justiBoot = true;
                 }else if (curopt == "nobootx") {
@@ -491,8 +501,10 @@ int main_r(int argc, const char * argv[]) {
                     cfg.iboot_nvramUnlock = kPatchcfgYes;
                }
                 else parsePatchConfig("ipatch-sep-force-local",iboot_sep_force_local);
+                else parsePatchConfig("ipatch-sep-force-raw",iboot_sep_force_raw);
                 else parsePatchConfig("ipatch-sep-skip-bpr",iboot_sep_skip_bpr);
                 else parsePatchConfig("ipatch-sep-skip-lock",iboot_sep_skip_lock);
+                else parsePatchConfig("ipatch-wtf-pwndfu",wtf_pwndfu);
                 else if (curopt == "ra1nra1n") {
                     cfg.ra1nra1n = readFile(optarg);
                 }
@@ -525,6 +537,7 @@ int main_r(int argc, const char * argv[]) {
                 else parsePatchConfig("kpatch-i_can_has_debugger",kpatch_i_can_has_debugger);
                 else parsePatchConfig("kpatch-mount",kpatch_mount);
                 else parsePatchConfig("kpatch-no-ramdisk-detect",kpatch_no_ramdisk_detect);
+                else parsePatchConfig("kpatch-noemf",kpatch_noemf);
                 else parsePatchConfig("kpatch-nuke-sandbox",kpatch_nuke_sandbox);
                 else parsePatchConfig("kpatch-root-from-sealed-apfs",kpatch_root_from_sealed_apfs);
                 else parsePatchConfig("kpatch-sandbox",kpatch_sandbox);

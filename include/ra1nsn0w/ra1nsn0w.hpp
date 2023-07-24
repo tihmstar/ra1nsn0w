@@ -34,6 +34,7 @@ namespace tihmstar {
             bool is32Bit = false;
             bool isOtaFirmware = false;
             bool doJailbreakPatches = false;
+            bool justDFU = false;
             bool justiBoot = false;
             bool iboot_nopatch = false;
             bool kernel_nopatch = false;
@@ -51,6 +52,8 @@ namespace tihmstar {
 
             std::string iboot_send_signed_sep = "";
 
+            Patchcfg wtf_pwndfu = kPatchcfgNo;
+            
             Patchcfg iboot_nvramUnlock = kPatchcfgNo;
             Patchcfg iboot_add_rw_and_rx_mappings = kPatchcfgNo;
             Patchcfg iboot_disable_wxn_el3 = kPatchcfgNo;
@@ -59,6 +62,7 @@ namespace tihmstar {
             Patchcfg iboot_reboot_to_memcpy = kPatchcfgNo;
             Patchcfg iboot_largepicture = kPatchcfgNo;
             Patchcfg iboot_sep_force_local = kPatchcfgNo;
+            Patchcfg iboot_sep_force_raw = kPatchcfgNo;
             Patchcfg iboot_atv4k_enable_uart = kPatchcfgNo;
             Patchcfg iboot_always_production = kPatchcfgNo;
             Patchcfg iboot_always_sepfw_booted = kPatchcfgNo;
@@ -75,6 +79,7 @@ namespace tihmstar {
             Patchcfg kpatch_allow_uid = kPatchcfgNo;
             Patchcfg kpatch_add_read_bpr = kPatchcfgNo;
             Patchcfg kpatch_no_ramdisk_detect = kPatchcfgNo;
+            Patchcfg kpatch_noemf = kPatchcfgNo;
             Patchcfg kpatch_get_kernelbase_syscall = kPatchcfgNo;
             Patchcfg kpatch_tfp0 = kPatchcfgNo;
             Patchcfg kpatch_tfp_unrestrict = kPatchcfgNo;
