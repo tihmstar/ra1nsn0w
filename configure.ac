@@ -38,11 +38,12 @@ CXXFLAGS+=" -std=c++11"
 CFLAGS+=" -std=c11"
 LDFLAGS+=" -lpthread"
 
-LIBGENERAL_REQUIRES_STR="libgeneral >= 65"
+LIBGENERAL_REQUIRES_STR="libgeneral >= 62"
 LIBFRAGMENTZIP_REQUIRES_STR="libfragmentzip >= 67"
-LIBIMG4TOOL_REQUIRES_STR="libimg4tool >= 198"
-LIBIMG3TOOL_REQUIRES_STR="libimg3tool >= 2"
-LIBIPATCHER_REQUIRES_STR="libipatcher >= 83"
+LIBIMG4TOOL_REQUIRES_STR="libimg4tool >= 195"
+LIBIMG3TOOL_REQUIRES_STR="libimg3tool >= 3"
+LIBIMG1TOOL_REQUIRES_STR="libimg1tool >= 7"
+LIBIPATCHER_REQUIRES_STR="libipatcher >= 84"
 LIBIRECOVERY_REQUIRES_STR="libirecovery-1.0 >= 1.0.0"
 LIBPATCHFINDER_REQUIRES_STR="libpatchfinder >= 12"
 LIBPLIST_REQUIRES_STR="libplist-2.0 >= 2.3.0"
@@ -59,6 +60,7 @@ PKG_CHECK_MODULES(libpatchfinder, $LIBPATCHFINDER_REQUIRES_STR)
 PKG_CHECK_MODULES(libplist, $LIBPLIST_REQUIRES_STR)
 PKG_CHECK_MODULES(libtsschecker, $LIBTSSCHECKER_REQUIRES_STR)
 PKG_CHECK_MODULES(openssl, $OPENSSL_REQUIRES_STR, have_openssl=yes, have_openssl=no)
+PKG_CHECK_MODULES(libimg1tool, $LIBIMG1TOOL_REQUIRES_STR, have_img1tool=yes, have_img1tool=no)
 
 AC_SUBST([libgeneral_requires], [$LIBGENERAL_REQUIRES_STR])
 AC_SUBST([libfragmentzip_requires], [$LIBFRAGMENTZIP_REQUIRES_STR])
@@ -71,17 +73,17 @@ AC_SUBST([libplist_requires], [$LIBPLIST_REQUIRES_STR])
 AC_SUBST([libtsschecker_requires], [$LIBTSSCHECKER_REQUIRES_STR])
 
 
-AC_ARG_ENABLE([build-as-lib],
-            [AS_HELP_STRING([--enable-build-as-lib],
-            [enable building as lib(default is no)])],
-            [build_as_lib=yes],
-            [build_as_lib=no])
-
 AC_ARG_ENABLE([debug],
             [AS_HELP_STRING([--enable-debug],
             [enable debug build(default is no)])],
             [debug_build=true],
             [debug_build=false])
+
+AC_ARG_WITH([img1tool],
+            [AS_HELP_STRING([--without-img1tool],
+            [do not build with img1tool @<:@default=yes@:>@])],
+            [with_img1tool=no],
+            [with_img1tool=yes])
 
 
 if test "$debug_build" = true; then
@@ -90,13 +92,29 @@ if test "$debug_build" = true; then
   CXXFLAGS+=" -g -O0 -DDEBUG=1"
 fi
 
-AM_CONDITIONAL([BUILD_AS_LIB], [test "x$build_as_lib" = "xyes"])
-
-AM_CONDITIONAL([HAVE_OPENSSL], [test "x$have_openssl" = "xyes"])
 
 if test "x$have_openssl" == "xyes"; then
   AC_DEFINE(HAVE_OPENSSL, [1], [Define if you have openssl])
 fi
+AM_CONDITIONAL([HAVE_OPENSSL], [test "x$have_openssl" = "xyes"])
+
+
+if test "x$have_img1tool" == "xyes"; then
+  if test "x$with_img1tool" = "xyes"; then
+    AC_DEFINE(HAVE_IMG1TOOL, [1], [Define if you have img1tool])
+    AC_SUBST([libimg1tool_requires], [$LIBIMG1TOOL_REQUIRES_STR])
+    AC_SUBST(libimg1tool_CFLAGS)
+    AC_SUBST(libimg1tool_LIBS)
+  else
+    echo "*** Note: img1tool has been disabled ***"
+  fi
+else
+  if test "x$with_img1tool" == "xyes"; then
+    AC_MSG_ERROR([requested building with img1tool, but library could not be found])
+  fi
+fi
+AM_CONDITIONAL([HAVE_IMG1TOOL], [test "x$have_img1tool" = "xyes"])
+
 
 # Check for functions
 AC_CHECK_FUNCS([memmem asprintf strtoul_l])
@@ -113,7 +131,7 @@ Configuration for $PACKAGE-$VERSION:
 
   install prefix ..........: $prefix
   have openssl ............: $have_openssl
-  build as lib ............: $build_as_lib"
+  have img1tool ...........: $have_img1tool"
 
 echo "  compiler ................: ${CC}
 
