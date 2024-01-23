@@ -125,8 +125,8 @@ static struct option longopts[] = {
     { NULL, 0, NULL, 0 }
 };
 
-std::vector<uint8_t> readFile(const char *filePath){
-    std::vector<uint8_t> ret;
+tihmstar::Mem readFile(const char *filePath){
+    tihmstar::Mem ret;
     int fd = -1;
     cleanup([&]{
         safeClose(fd);
@@ -200,7 +200,7 @@ void parserUserPatch(std::string userpatch, launchConfig &cfg, bool isFile = fal
     component = *(uint32_t*)componentstr.c_str();
     
     while (true) {
-        std::vector<uint8_t> patchBytes;
+        tihmstar::Mem patchBytes;
         
         ssize_t nextPatchPos = patchstr.find(";");
         ssize_t commaPos = 0;
@@ -219,7 +219,7 @@ void parserUserPatch(std::string userpatch, launchConfig &cfg, bool isFile = fal
             for (size_t i = 0; i<pPatch.size(); i+=2) {
                 uint32_t byte = 0;
                 assure(sscanf(&pPatch.c_str()[i], "%02x",&byte) == 1);
-                patchBytes[i/2] = (uint8_t)byte;
+                patchBytes.data()[i/2] = (uint8_t)byte;
             }
             patchBytes.resize(pPatch.size()/2);
         }
@@ -246,7 +246,7 @@ void parserCustomComponent(std::string customcomponent, launchConfig &cfg){
     
     std::string componentName = customcomponent.substr(0,commapos);
     auto data = readFile(customcomponent.substr(commapos+1).c_str());
-    cfg.customComponents[componentName] = data;
+    cfg.customComponents[componentName] = std::move(data);
 }
 
 void parserStringReplacePatch(std::string userpatch, launchConfig &cfg){
@@ -528,10 +528,11 @@ int main_r(int argc, const char * argv[]) {
                         error("Failed reading hexbytes!");
                         return -1;
                     }
+                    cfg.kernelHardcoderoot_ticket_hash.resize(len/2);
                     for (size_t i = 0; i<len; i+=2) {
                         uint32_t byte = 0;
                         assure(sscanf(&optarg[i], "%02x",&byte) == 1);
-                        cfg.kernelHardcoderoot_ticket_hash.push_back((uint8_t)byte);
+                        cfg.kernelHardcoderoot_ticket_hash.data()[i/2] = (uint8_t)byte;
                     }
                 }
                 else parsePatchConfig("kpatch-i_can_has_debugger",kpatch_i_can_has_debugger);

@@ -47,6 +47,7 @@ namespace tihmstar {
             bool noDecrypt = false;
             bool sendAllComponents = false;
             bool isSRD = false;
+            bool restoreBoot = false;
 
             std::string customKeysZipUrl = "";
 
@@ -88,26 +89,26 @@ namespace tihmstar {
             Patchcfg kpatch_root_from_sealed_apfs = kPatchcfgNo;
             Patchcfg kpatch_apfs_skip_authenticated_root = kPatchcfgNo;
             
-            std::vector<uint8_t> root_ticket_hash;
-            std::vector<uint8_t> kernelHardcoderoot_ticket_hash;
+            tihmstar::Mem root_ticket_hash;
+            tihmstar::Mem kernelHardcoderoot_ticket_hash;
             std::vector<std::pair<std::string, uint64_t>> cmdhandler;
             std::string cmdcall;
             std::string bootargs;
             std::string kernelHardcodeBootargs;
 
-            std::vector<uint8_t> kernelIm4p;
-            std::vector<uint8_t> ramdiskIm4p;
-            std::vector<uint8_t> sepIm4p;
-            std::vector<uint8_t> ra1nra1n;
-            std::vector<uint8_t> trustcache;
-            std::vector<uint8_t> bootlogoIm4p;
-            std::vector<uint8_t> iBSSIm4p;
-            std::vector<uint8_t> iBECIm4p;
+            tihmstar::Mem kernelIm4p;
+            tihmstar::Mem ramdiskIm4p;
+            tihmstar::Mem sepIm4p;
+            tihmstar::Mem ra1nra1n;
+            tihmstar::Mem trustcache;
+            tihmstar::Mem bootlogoIm4p;
+            tihmstar::Mem iBSSIm4p;
+            tihmstar::Mem iBECIm4p;
             bool ramdiskIsRawDMG = false;
             
             std::map<uint32_t,std::vector<patchfinder::patch>> userPatches; // <component,patches>
             std::map<uint32_t,std::vector<std::pair<std::string,std::string>>> replacePatches; // <find str, replace str>
-            std::map<std::string,std::vector<uint8_t>> customComponents; // <componentName, data>
+            std::map<std::string,tihmstar::Mem> customComponents; // <componentName, data>
         };
 
         void launchDevice(iOSDevice &idev, std::string firmwareUrl, const launchConfig &cfg = {}, img4tool::ASN1DERElement im4mData = {}, std::string variant = "");

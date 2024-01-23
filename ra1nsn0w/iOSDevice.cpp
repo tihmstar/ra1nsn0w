@@ -234,14 +234,14 @@ uint64_t iOSDevice::getDeviceECID(){
     return irecv_get_device_info(_cli)->ecid;
 }
 
-std::vector<uint8_t> iOSDevice::getAPNonce(){
+tihmstar::Mem iOSDevice::getAPNonce(){
     const irecv_device_info *info = irecv_get_device_info(_cli);
-    return {info->ap_nonce,info->ap_nonce+info->ap_nonce_size};
+    return {info->ap_nonce,info->ap_nonce_size};
 }
 
-std::vector<uint8_t> iOSDevice::getSEPNonce(){
+tihmstar::Mem iOSDevice::getSEPNonce(){
     const irecv_device_info *info = irecv_get_device_info(_cli);
-    return {info->sep_nonce,info->sep_nonce+info->sep_nonce_size};
+    return {info->sep_nonce,info->sep_nonce_size};
 }
 
 bool iOSDevice::supportsIMG4(){
@@ -318,11 +318,17 @@ void iOSDevice::waitForDisconnect(uint32_t timeoutMS){
         return;
     }
     std::unique_lock<std::mutex> elock(_eventLock);
-    safeFreeCustom(_cli, irecv_close);
 
     if (!_didDisconnect) {
         _eventNotifier.wait_for(elock, std::chrono::milliseconds(timeoutMS), [&]{return _mode == iOSDevice::unknown;});
     }
+    if (!_didDisconnect){
+        /*
+            Apple Watch S2 we need to kick hard to get it to boot :o
+         */
+        irecv_reset(_cli);
+    }
+    safeFreeCustom(_cli, irecv_close);
     retassure(_didDisconnect, "Device did not disconnect");
 }
 
