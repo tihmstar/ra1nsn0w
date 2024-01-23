@@ -9,6 +9,7 @@
 #ifndef iOSDevice_hpp
 #define iOSDevice_hpp
 
+#include <libgeneral/Mem.hpp>
 #include <iostream>
 #include <mutex>
 #include <vector>
@@ -59,8 +60,8 @@ namespace ra1nsn0w{
         uint32_t getDeviceCPID();
         uint32_t getDeviceBDID();
         uint64_t getDeviceECID();
-        std::vector<uint8_t> getAPNonce();
-        std::vector<uint8_t> getSEPNonce();
+        tihmstar::Mem getAPNonce();
+        tihmstar::Mem getSEPNonce();
         bool supportsIMG4();
 
         void sendComponent(const void *buf, size_t size);

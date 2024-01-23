@@ -98,13 +98,13 @@ static void fragmentzip_callback(unsigned int progress){
     printf("\n");
 }
 
-static std::vector<uint8_t> readfile(const char *filePath){
+static tihmstar::Mem readfile(const char *filePath){
     int fd = -1;
     cleanup([&]{
         safeClose(fd);
     });
     struct stat st = {};
-    std::vector<uint8_t> ret;
+    tihmstar::Mem ret;
     assure((fd = open(filePath, O_RDONLY)) != -1);
     assure(!fstat(fd, &st));
     ret.resize(st.st_size);
@@ -209,7 +209,7 @@ int iBootPatchFunc(char *file, size_t size, void *param){
         
         if (cfg->root_ticket_hash.size())            {
             info("iBoot: Adding root_ticket_hash patch...");
-            auto patch = ibpf->set_root_ticket_hash(cfg->root_ticket_hash);
+            auto patch = ibpf->set_root_ticket_hash(cfg->root_ticket_hash.data(), cfg->root_ticket_hash.size());
             patches.insert(patches.end(), patch.begin(), patch.end());
         }
         
@@ -285,7 +285,7 @@ int iBootPatchFunc(char *file, size_t size, void *param){
     return 0;
 }
 
-std::vector<uint8_t> downloadComponent(fragmentzip_t *fzinfo, std::string path, bool isOta){
+tihmstar::Mem downloadComponent(fragmentzip_t *fzinfo, std::string path, bool isOta){
     char *buf = NULL;
     cleanup([&]{
         safeFree(buf);
@@ -294,7 +294,10 @@ std::vector<uint8_t> downloadComponent(fragmentzip_t *fzinfo, std::string path, 
     if (isOta) path = "AssetData/boot/" + path;
     info("Loading %s ...",path.c_str());
     retassure(!fragmentzip_download_to_memory(fzinfo, path.c_str(), &buf, &bufSize, fragmentzip_callback),"Failed to load '%s'",path.c_str());
-    return {buf,buf+bufSize};
+    {
+        Mem ret = {buf,bufSize}; buf = NULL; bufSize = 0;
+        return ret;
+    }
 }
 
 void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const launchConfig &cfg, img4tool::ASN1DERElement im4m, std::string variant){
@@ -325,13 +328,13 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
     std::string trstPath;
     std::string rsepPath;
     
-    std::vector<uint8_t> ibssData;
-    std::vector<uint8_t> ibecData;
-    std::vector<uint8_t> kernelData;
-    std::vector<uint8_t> dtreData;
-    std::vector<uint8_t> trstData;
-    std::vector<uint8_t> rsepData;
-    std::vector<uint8_t> rdskData;
+    tihmstar::Mem ibssData;
+    tihmstar::Mem ibecData;
+    tihmstar::Mem kernelData;
+    tihmstar::Mem dtreData;
+    tihmstar::Mem trstData;
+    tihmstar::Mem rsepData;
+    tihmstar::Mem rdskData;
 
     uint64_t cpid = 0;
     bool isIMG4 = idev.supportsIMG4();
@@ -390,26 +393,47 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
         });
         size_t wtfBufSize = 0;
         retassure(!fragmentzip_download_to_memory(fzinfo, "Firmware/dfu/WTF.s5l8900xall.RELEASE.dfu", &wtfBuf, &wtfBufSize, fragmentzip_callback),"Failed to load WTF image");
-        std::vector<uint8_t> wtfpayload;
+        tihmstar::Mem wtfpayload;
         {
 #ifdef HAVE_IMG1TOOL
             //patch WTF image
             wtfpayload = img1tool::getPayloadFromIMG1(wtfBuf, wtfBufSize);
             
             info("Patching WTF...");
-            bootconfig wtf_bootcfg = bootcfg;
-            launchConfig wtf_launchcfg = *bootcfg.launchcfg;
-            wtf_bootcfg.curPatchComponent = '.ftw'; //wtf. (not actually a thing)
-            {
-                std::string orig_s = "IBFL:%02X";
-                std::string new_s  = "SIGP:[WTF]";
-                orig_s.push_back('\0');
-                orig_s.push_back('\0');
-                new_s.push_back('\0');
-                wtf_launchcfg.replacePatches['.ftw'].push_back({orig_s,new_s});
+            int patchret = 0;
+            for (int i=0; i<2; i++){
+                bootconfig wtf_bootcfg = bootcfg;
+                launchConfig wtf_launchcfg = *bootcfg.launchcfg;
+                wtf_bootcfg.curPatchComponent = '.ftw'; //wtf. (not actually a thing)
+                if (i == 0){
+                    //first try, iOS 3 patch
+                    std::string new_s  = "SIGP:[WTF]";
+                    new_s.push_back('\0');
+                    std::string orig_s = "IBFL:%02X";
+                    orig_s.push_back('\0');
+                    orig_s.push_back('\0');
+                    wtf_launchcfg.replacePatches['.ftw'].push_back({orig_s,new_s});
+                } else if (i == 1){
+                    //second try, iOS 2 patch
+                    std::string new_s  = "] SIGP:[WTF]";
+                    new_s.push_back('\0');
+                    std::string orig_s = "]S5L8900 S";
+                    for (int i=0; i<3; i++) {
+                        orig_s.insert(orig_s.begin()+1, '\0');
+                    }
+                    wtf_launchcfg.replacePatches['.ftw'].push_back({orig_s,new_s});
+                }else{
+                    reterror("Unexpected try %d",i);
+                }
+                wtf_bootcfg.launchcfg = &wtf_launchcfg;
+                try {
+                    patchret = iBootPatchFunc((char*)wtfpayload.data(), wtfpayload.size(), (void*)&wtf_bootcfg);
+                } catch (tihmstar::exception &e) {
+                    continue;
+                }
+                if (!patchret) break;
             }
-            wtf_bootcfg.launchcfg = &wtf_launchcfg;
-            retassure(!iBootPatchFunc((char*)wtfpayload.data(), wtfpayload.size(), (void*)&wtf_bootcfg), "Failed to patch WTF");
+            retassure(!patchret, "Failed to patch WTF");
             wtfpayload = img1tool::createIMG1FromPayloadWithPwnage2(wtfpayload);
 #else
             info("Not patching WTF. SIGNATURE CHECKS ARE STILL IN PLACE!!!");
@@ -462,7 +486,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
         kernelPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "KernelCache");
         info("Found kernel at %s",kernelPath.c_str());
 
-        if (cfg.isSRD) {
+        if (cfg.isSRD || cfg.restoreBoot) {
             dtrePath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "RestoreDeviceTree");
         }else{
             dtrePath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "DeviceTree");
@@ -470,7 +494,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
         info("Found DeviceTree at %s",dtrePath.c_str());
 
         try {
-            if (cfg.isSRD) {
+            if (cfg.isSRD || cfg.restoreBoot) {
                 trstPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "RestoreTrustCache");
             }else{
                 trstPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "StaticTrustCache");
@@ -563,9 +587,9 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
             safeFree(ppiBSS.first); //free buffer
         });
         if (isIMG4) {
-            piBSS = {ppiBSS.first,ppiBSS.second};
+            piBSS = {(const char *)ppiBSS.first,ppiBSS.second};
         }else{
-            ibssData = {ppiBSS.first,ppiBSS.first+ppiBSS.second};
+            ibssData = {(const char *)ppiBSS.first,ppiBSS.second};
         }
     }
     
@@ -595,7 +619,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
             if (isIMG4) {
                 piBEC = {ppiBEC.first,ppiBEC.second};
             }else{
-                ibecData = {ppiBEC.first,ppiBEC.first+ppiBEC.second};
+                ibecData = {(const char *)ppiBEC.first,ppiBEC.second};
             }
         }
     }
@@ -674,13 +698,13 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
 
                     if (cfg.kernelHardcoderoot_ticket_hash.size()) {
                         std::string pretty;
-                        for (auto b : cfg.kernelHardcoderoot_ticket_hash) {
+                        for (int i=0; i<cfg.kernelHardcoderoot_ticket_hash.size(); i++) {
                             char buf[0x10] = {};
-                            snprintf(buf, sizeof(buf), "%02x",b);
+                            snprintf(buf, sizeof(buf), "%02x",cfg.kernelHardcoderoot_ticket_hash.data()[i]);
                             pretty += buf;
                         }
                         info("Kernel: Adding hardcode boot-manifest patch (%s) ...",pretty.c_str());
-                        auto patch = kpf->get_harcode_boot_manifest_patch(cfg.kernelHardcoderoot_ticket_hash);
+                        auto patch = kpf->get_harcode_boot_manifest_patch(cfg.kernelHardcoderoot_ticket_hash.data(),cfg.kernelHardcoderoot_ticket_hash.size());
                         patches.insert(patches.end(), patch.begin(), patch.end());
                     }
 
@@ -740,7 +764,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
                 if (isIMG4) {
                     pkernel = {ppKernel.first,ppKernel.second};
                 }else{
-                    kernelData = {ppKernel.first,ppKernel.first+ppKernel.second};
+                    kernelData = {(const void*)ppKernel.first,ppKernel.second};
                 }
             }
             if (isIMG4) {
@@ -817,7 +841,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
         plist_t pRestoreKernel = NULL;
         retassure(pRestoreKernel = tsschecker::TssRequest::getElementForComponentBuildIdentity(buildidentity, "RestoreKernelCache"), "Failed to get Component RestoreKernelCache");
         {
-            std::vector<uint8_t> sha384Hash;
+            tihmstar::Mem sha384Hash;
 #ifdef HAVE_OPENSSL
             sha384Hash.resize(SHA384_DIGEST_LENGTH);
             SHA384((uint8_t*)pkernel.buf(), pkernel.size(), sha384Hash.data());
@@ -834,7 +858,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
             req.setAPNonce(idev.getAPNonce());
             req.setSEPNonce(idev.getSEPNonce());
             
-            std::map<std::string,std::vector<uint8_t>> tbm;
+            std::map<std::string,tihmstar::Mem> tbm;
             {
                 plist_t ticket = NULL;
                 cleanup([&]{
@@ -845,10 +869,10 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
                 im4m = {im4mdata.data(),im4mdata.size()};
                 
                 if (plist_t p_tbm = plist_dict_get_item(ticket, "iBSS-TBM")) {
-                    std::vector<uint8_t> tbm_ucon = tsschecker::TssRequest::getElementFromTssResponse(p_tbm, "ucon");
-                    std::vector<uint8_t> tbm_ucer = tsschecker::TssRequest::getElementFromTssResponse(p_tbm, "ucer");
-                    tbm["ucon"] = tbm_ucon;
-                    tbm["ucer"] = tbm_ucer;
+                    tihmstar::Mem tbm_ucon = tsschecker::TssRequest::getElementFromTssResponse(p_tbm, "ucon");
+                    tihmstar::Mem tbm_ucer = tsschecker::TssRequest::getElementFromTssResponse(p_tbm, "ucer");
+                    tbm["ucon"] = std::move(tbm_ucon);
+                    tbm["ucer"] = std::move(tbm_ucer);
                 }
             }
             
@@ -910,17 +934,14 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
             idev.setCheckpoint();
             idev.sendComponent(ibssData.data(), ibssData.size());
         }
-#if defined(__aarch64__)
         try {
-#endif
             idev.waitForReconnect(20000);
-#if defined(__aarch64__)
         } catch (...) {
             printf("********************** Attention! **********************\n"
                    "*   Timeout reached waiting for device entering iBSS   *\n"
-                   "*         This could be cause by an M1 USB bug         *\n"
+                   "*         This could be caused by some USB bug         *\n"
                    "*  In this case you need to disconnect and re-connect  *\n"
-                   "* the cable (or adapter)  AT THE COMPUTER (USB-C) END! *\n"
+                   "*     the cable (or adapter)  AT THE COMPUTER END!     *\n"
                    "*     Disconnecting at the phone end will NOT work     *\n"
                    "********************************************************\n"
                    );
@@ -936,7 +957,6 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
             throw;
         }
     got_device_in_ibss:;
-#endif
     }else if (bootcfg.skipiBEC){
         if (isIMG4) {
             /*
@@ -1131,7 +1151,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
     idev.sendCommand("devicetree");
 
     if (cfg.ramdiskIm4p.size() || rdskData.size()) {
-        const std::vector<uint8_t> *realRDSK = cfg.ramdiskIm4p.size() ? &cfg.ramdiskIm4p : &rdskData;
+        const tihmstar::Mem *realRDSK = cfg.ramdiskIm4p.size() ? &cfg.ramdiskIm4p : &rdskData;
         if (isIMG4) {
             img4tool::ASN1DERElement sramdisk;
             bool ramdiskNeedsPacking = cfg.ramdiskIsRawDMG;
@@ -1160,7 +1180,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
             idev.sendComponent(sramdisk.buf(), sramdisk.size());
         }else{
             bool ramdiskNeedsPacking = cfg.ramdiskIsRawDMG;
-            std::vector<uint8_t> tmpbuf;
+            tihmstar::Mem tmpbuf;
             const uint8_t *ramdiskBufPtr = NULL;
             size_t ramdiskBufSize = 0;
 
@@ -1197,7 +1217,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
          */
         info("Sending dummy ramdisk...");
         std::string payload = "[THIS IS A RAMDISK]";
-        auto rdsk = img3tool::appendPayloadToIMG3(img3tool::getEmptyIMG3Container('rdsk'), 'DATA', {payload.data(),payload.data()+payload.size()});
+        auto rdsk = img3tool::appendPayloadToIMG3(img3tool::getEmptyIMG3Container('rdsk'), 'DATA', payload.data(), payload.size());
         idev.sendComponent(rdsk.data(), rdsk.size());
         idev.sendCommand("ramdisk");
     }
@@ -1227,7 +1247,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
         info("Booting...");
         idev.setCheckpoint();
         idev.sendCommand("bootx");
-        idev.waitForDisconnect(5000);
+        idev.waitForDisconnect(10000);
     }
 
     info("Done!");
