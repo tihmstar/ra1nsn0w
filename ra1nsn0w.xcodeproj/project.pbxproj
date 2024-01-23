@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2A24F8302B5EF26900DEC781 /* ra1nsn0w.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA71D2376FA4C00AB878C /* ra1nsn0w.cpp */; };
+		2A24F8332B5EF27B00DEC781 /* iOSDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA7342376FF1800AB878C /* iOSDevice.cpp */; };
+		2A24F8652B5F0EB600DEC781 /* ra1nsn0w_argparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2A24F81A2B5EE02C00DEC781 /* ra1nsn0w_argparser.cpp */; };
 		2A5B337D2A55E17400763907 /* libtsschecker.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A9F8E3729B3949E00D57851 /* libtsschecker.0.dylib */; };
 		2A5B337E2A55E17400763907 /* libtsschecker.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 2A9F8E3729B3949E00D57851 /* libtsschecker.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		2A5B33802A55E18100763907 /* libipatcher.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA72E2376FC5C00AB878C /* libipatcher.0.dylib */; };
@@ -29,9 +32,8 @@
 		2A5B33922A55E1E700763907 /* libgeneral.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA7192376F39400AB878C /* libgeneral.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		2A5B33932A55E1F500763907 /* libcrypto.3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2AD2CFC52971E74600F8D5E4 /* libcrypto.3.dylib */; };
 		2A5B33942A55E1F500763907 /* libcrypto.3.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 2AD2CFC52971E74600F8D5E4 /* libcrypto.3.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		876724F82B5FB9600036188D /* ra1nsn0w_plugins.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2A24F8182B5EDB8B00DEC781 /* ra1nsn0w_plugins.cpp */; };
 		87EBA7122376F32A00AB878C /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA7112376F32A00AB878C /* main.cpp */; };
-		87EBA71F2376FA4C00AB878C /* ra1nsn0w.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA71D2376FA4C00AB878C /* ra1nsn0w.cpp */; };
-		87EBA7362376FF1800AB878C /* iOSDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA7342376FF1800AB878C /* iOSDevice.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -68,6 +70,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2A24F8182B5EDB8B00DEC781 /* ra1nsn0w_plugins.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ra1nsn0w_plugins.cpp; sourceTree = "<group>"; };
+		2A24F81A2B5EE02C00DEC781 /* ra1nsn0w_argparser.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ra1nsn0w_argparser.cpp; sourceTree = "<group>"; };
+		2A24F81C2B5EE55F00DEC781 /* ra1nsn0w_plugins.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = ra1nsn0w_plugins.hpp; path = include/ra1nsn0w/ra1nsn0w_plugins.hpp; sourceTree = SOURCE_ROOT; };
 		2A5B338A2A55E1C600763907 /* libplist-2.0.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libplist-2.0.4.dylib"; path = "../../../../usr/local/lib/libplist-2.0.4.dylib"; sourceTree = "<group>"; };
 		2A96E7DD2A52BB59005255C0 /* libimg1tool.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libimg1tool.0.dylib; path = ../../../../usr/local/lib/libimg1tool.0.dylib; sourceTree = "<group>"; };
 		2A9F8E3729B3949E00D57851 /* libtsschecker.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libtsschecker.0.dylib; path = ../../../../usr/local/lib/libtsschecker.0.dylib; sourceTree = "<group>"; };
@@ -141,6 +146,9 @@
 				87EBA7342376FF1800AB878C /* iOSDevice.cpp */,
 				87091E4D266E307C00C7C66C /* ra1nsn0w.hpp */,
 				87EBA71D2376FA4C00AB878C /* ra1nsn0w.cpp */,
+				2A24F81C2B5EE55F00DEC781 /* ra1nsn0w_plugins.hpp */,
+				2A24F8182B5EDB8B00DEC781 /* ra1nsn0w_plugins.cpp */,
+				2A24F81A2B5EE02C00DEC781 /* ra1nsn0w_argparser.cpp */,
 				87EBA7112376F32A00AB878C /* main.cpp */,
 			);
 			path = ra1nsn0w;
@@ -230,9 +238,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				87EBA7362376FF1800AB878C /* iOSDevice.cpp in Sources */,
 				87EBA7122376F32A00AB878C /* main.cpp in Sources */,
-				87EBA71F2376FA4C00AB878C /* ra1nsn0w.cpp in Sources */,
+				2A24F8302B5EF26900DEC781 /* ra1nsn0w.cpp in Sources */,
+				2A24F8332B5EF27B00DEC781 /* iOSDevice.cpp in Sources */,
+				2A24F8652B5F0EB600DEC781 /* ra1nsn0w_argparser.cpp in Sources */,
+				876724F82B5FB9600036188D /* ra1nsn0w_plugins.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -359,6 +369,7 @@
 					HAVE_OPENSSL,
 					HAVE_STRTOUL_L,
 					HAVE_IMG1TOOL,
+					WITH_PLUGIN_SUPPORT,
 				);
 				HEADER_SEARCH_PATHS = /usr/local/include;
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;

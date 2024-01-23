@@ -79,6 +79,12 @@ AC_ARG_ENABLE([debug],
             [debug_build=true],
             [debug_build=false])
 
+AC_ARG_ENABLE([plugins],
+            [AS_HELP_STRING([--enable-plugins],
+            [enable plugin support(default is no)])],
+            [plugin_support=true],
+            [plugin_support=false])
+
 AC_ARG_WITH([img1tool],
             [AS_HELP_STRING([--without-img1tool],
             [do not build with img1tool @<:@default=yes@:>@])],
@@ -92,6 +98,9 @@ if test "$debug_build" = true; then
   CXXFLAGS+=" -g -O0 -DDEBUG=1"
 fi
 
+if test "x$plugin_support" == "xtrue"; then
+  AC_DEFINE(WITH_PLUGIN_SUPPORT, [1], [Define if you want to build with plugin support])
+fi
 
 if test "x$have_openssl" == "xyes"; then
   AC_DEFINE(HAVE_OPENSSL, [1], [Define if you have openssl])

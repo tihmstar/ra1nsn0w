@@ -9,13 +9,18 @@
 #ifndef ra1nsn0w_hpp
 #define ra1nsn0w_hpp
 
-#include "iOSDevice.hpp"
+#include <ra1nsn0w/iOSDevice.hpp>
 #include <img4tool/img4tool.hpp>
 #include <libpatchfinder/patch.hpp>
+
 #include <map>
+
+#include <getopt.h>
 
 namespace tihmstar {
     namespace ra1nsn0w{
+        class Plugin;
+        class PluginObj;
         enum Patchcfg{
             kPatchcfgNo = 0,
             kPatchcfgYes = 1,
@@ -106,12 +111,14 @@ namespace tihmstar {
             tihmstar::Mem iBECIm4p;
             bool ramdiskIsRawDMG = false;
             
+            std::map<const Plugin*,std::shared_ptr<PluginObj>> activePlugins;
+            
             std::map<uint32_t,std::vector<patchfinder::patch>> userPatches; // <component,patches>
             std::map<uint32_t,std::vector<std::pair<std::string,std::string>>> replacePatches; // <find str, replace str>
             std::map<std::string,tihmstar::Mem> customComponents; // <componentName, data>
         };
 
-        void launchDevice(iOSDevice &idev, std::string firmwareUrl, const launchConfig &cfg = {}, img4tool::ASN1DERElement im4mData = {}, std::string variant = "");
+        std::map<uint32_t,std::vector<patchfinder::patch>> launchDevice(iOSDevice &idev, std::string firmwareUrl, const launchConfig &cfg = {}, img4tool::ASN1DERElement im4mData = {}, std::string variant = "");
     };
 };
 

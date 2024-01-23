@@ -7,6 +7,7 @@
 //
 
 #include "../include/ra1nsn0w/ra1nsn0w.hpp"
+#include "../include/ra1nsn0w/ra1nsn0w_plugins.hpp"
 #include <libgeneral/macros.h>
 #include <plist/plist.h>
 #include <libipatcher/libipatcher.hpp>
@@ -42,6 +43,7 @@ struct bootconfig{
     bool didProcessKernelLoader;
     bool skipiBEC;
     uint32_t curPatchComponent;
+    std::map<uint32_t,std::vector<patchfinder::patch>> appliedPatches;
 };
 
 #define addKernelpatch(cfgname, funcname, funcstring) \
@@ -96,20 +98,6 @@ static void fragmentzip_callback(unsigned int progress){
     printf("\x1b[A\033[J"); //clear 2 lines
     printline((int)progress);
     printf("\n");
-}
-
-static tihmstar::Mem readfile(const char *filePath){
-    int fd = -1;
-    cleanup([&]{
-        safeClose(fd);
-    });
-    struct stat st = {};
-    tihmstar::Mem ret;
-    assure((fd = open(filePath, O_RDONLY)) != -1);
-    assure(!fstat(fd, &st));
-    ret.resize(st.st_size);
-    assure(read(fd, ret.data(), ret.size()) == ret.size());
-    return ret;
 }
 
 static plist_t readPlistFromFile(const char *filePath){
@@ -268,7 +256,13 @@ int iBootPatchFunc(char *file, size_t size, void *param){
         //
     }
     
+    for (auto p : bcfg->launchcfg->activePlugins) {
+        auto ppatches = p.second->patcher(bcfg->curPatchComponent, file, size);
+        patches.insert(patches.end(), ppatches.begin(), ppatches.end());
+    }
+    
     /* ---------- Applying collected patches ---------- */
+    bcfg->appliedPatches[bcfg->curPatchComponent] = patches;
     info("iBoot: Applying patches...");
     for (auto p : patches) {
         uint64_t off = (uint64_t)(p._location - ibpf->find_base());
@@ -300,7 +294,7 @@ tihmstar::Mem downloadComponent(fragmentzip_t *fzinfo, std::string path, bool is
     }
 }
 
-void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const launchConfig &cfg, img4tool::ASN1DERElement im4m, std::string variant){
+std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const launchConfig &cfg, img4tool::ASN1DERElement im4m, std::string variant){
     bootconfig bootcfg = {&cfg};
     fragmentzip_t *fzinfo = NULL;
     char *buildmanifestBuf = NULL;
@@ -448,7 +442,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
     
     if (bootcfg.launchcfg->justDFU && idev.getDeviceMode() == iOSDevice::dfu) {
         info("Device reached DFU mode, done!");
-        return;
+        return bootcfg.appliedPatches;
     }
     
     if (!buildidentity) buildidentity = tsschecker::TssRequest::getBuildIdentityForDevice(buildmanifest, idev.getDeviceCPID(), idev.getDeviceBDID(), variant);
@@ -650,7 +644,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
             }else{
                 info("Patching kernel...\n");
                 bootcfg.curPatchComponent = 'nrkr'; //rkrn (restore kernel)
-                auto ppKernel = libipatcher::patchCustom((char*)kernelData.data(), kernelData.size(), kernelKeys, [&cfg](char *file, size_t size, void *param)->int{
+                auto ppKernel = libipatcher::patchCustom((char*)kernelData.data(), kernelData.size(), kernelKeys, [&cfg,&bootcfg](char *file, size_t size, void *param)->int{
                     std::vector<patchfinder::patch> patches;
                     patchfinder::kernelpatchfinder *kpf = nullptr;
                     cleanup([&]{
@@ -740,8 +734,14 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
                         //
                     }
 
+                    for (auto p : cfg.activePlugins) {
+                        auto ppatches = p.second->patcher('rkrn', file, size);
+                        patches.insert(patches.end(), ppatches.begin(), ppatches.end());
+                    }
+                    
                     /* ---------- Applying collected patches ---------- */
                     info("Kernel: Applying patches...");
+                    bootcfg.appliedPatches[bootcfg.curPatchComponent] = patches;
                     for (auto p : patches) {
                         uint64_t off = (uint64_t)((const char *)kpf->memoryForLoc(p._location) - file);
 #ifdef DEBUG
@@ -1014,7 +1014,7 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
 
     if (bootcfg.launchcfg->justiBoot) {
         info("iBoot reached, returning.");
-        return;
+        return bootcfg.appliedPatches;
     }
     
     if (cfg.sendAllComponents) {
@@ -1251,4 +1251,5 @@ void ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const laun
     }
 
     info("Done!");
+    return bootcfg.appliedPatches;
 }
