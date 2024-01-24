@@ -168,6 +168,7 @@ int main_r(int argc, const char * argv[]) {
                 std::string fullpath = ppath + file->d_name;
                 void *handle = dlopen(fullpath.c_str(), RTLD_NOW);
                 if (handle) info("Loaded plugin '%s'",fullpath.c_str());
+                else error("Trying to loading plugin '%s' failed with reason '%s'",fullpath.c_str(),dlerror());
             }
         }
     }
