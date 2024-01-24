@@ -99,7 +99,10 @@ if test "$debug_build" = true; then
 fi
 
 if test "x$plugin_support" == "xtrue"; then
-  AC_DEFINE(WITH_PLUGIN_SUPPORT, [1], [Define if you want to build with plugin support])
+    if test "x$enable_static" == "xyes"; then
+        AC_MSG_ERROR("Cannot have plugin support with static build. Configure with '--disable-static'")
+    fi
+    AC_DEFINE(WITH_PLUGIN_SUPPORT, [1], [Define if you want to build with plugin support])
 fi
 
 if test "x$have_openssl" == "xyes"; then
