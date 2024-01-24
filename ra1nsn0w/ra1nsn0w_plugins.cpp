@@ -401,6 +401,8 @@ void ra1nsn0w::pluginRegister(const Plugin *plugin){
     gPlugins.insert(plugin);
     updateCmdHelperString();
     updateLongopts();
+#else
+    error("ra1nsn0w::pluginRegister called, but ra1nsn0w was built without plugin support!");
 #endif //WITH_PLUGIN_SUPPORT
 }
 
@@ -409,5 +411,7 @@ void ra1nsn0w::pluginUnregister(const Plugin *plugin){
     gPlugins.erase(plugin);
     updateCmdHelperString();
     updateLongopts();
+#else
+    error("ra1nsn0w::pluginUnregister called, but ra1nsn0w was built without plugin support!");
 #endif //WITH_PLUGIN_SUPPORT
 }
