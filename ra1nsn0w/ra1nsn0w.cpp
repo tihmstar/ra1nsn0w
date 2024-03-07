@@ -735,7 +735,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
                     }
 
                     for (auto p : cfg.activePlugins) {
-                        auto ppatches = p.second->patcher('rkrn', file, size);
+                        auto ppatches = p.second->patcher('nrkr', file, size);
                         patches.insert(patches.end(), ppatches.begin(), ppatches.end());
                     }
                     
