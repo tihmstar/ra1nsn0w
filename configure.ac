@@ -143,7 +143,8 @@ Configuration for $PACKAGE-$VERSION:
 
   install prefix ..........: $prefix
   have openssl ............: $have_openssl
-  have img1tool ...........: $have_img1tool"
+  have img1tool ...........: $have_img1tool
+  have plugin support .....: $plugin_support"
 
 echo "  compiler ................: ${CC}
 
