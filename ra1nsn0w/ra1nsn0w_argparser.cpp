@@ -58,8 +58,8 @@ void ra1nsn0w::parserUserPatch(std::string userpatch, launchConfig &cfg, bool is
         patchfinder::patch p{addr,patchBytes.data(),patchBytes.size()};
 
         printf("%s: Parsed patch=%p : ",componentstr.c_str(),(void*)p._location);
-        for (int i=0; i<p._patchSize; i++) {
-            printf("%02x",((uint8_t*)p._patch)[i]);
+        for (int i=0; i<p.getPatchSize(); i++) {
+            printf("%02x",((uint8_t*)p.getPatch())[i]);
         }
         printf("\n");
         

@@ -268,12 +268,12 @@ int iBootPatchFunc(char *file, size_t size, void *param){
         uint64_t off = (uint64_t)(p._location - ibpf->find_base());
 #ifdef DEBUG
         printf("iBoot: Applying patch=%p : ",(void*)p._location);
-        for (int i=0; i<p._patchSize; i++) {
-            printf("%02x",((uint8_t*)p._patch)[i]);
+        for (int i=0; i<p.getPatchSize(); i++) {
+            printf("%02x",((uint8_t*)p.getPatch())[i]);
         }
         printf("\n");
 #endif
-        memcpy(&file[off], p._patch, p._patchSize);
+        memcpy(&file[off], p.getPatch(), p.getPatchSize());
     }
     info("iBoot: Patches applied!");
     return 0;
@@ -302,6 +302,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     plist_t buildmanifest = NULL;
 
     char *buildnum = NULL;
+    uint32_t buildMajorVersion = 0;
 
     cleanup([&]{
         safeFree(buildnum);
@@ -463,6 +464,17 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     retassure(plist_get_node_type(pBuildnum) == PLIST_STRING, "ProductBuildVersion is not a string");
     plist_get_string_val(pBuildnum, &buildnum);
     retassure(buildnum, "failed to get buildnum");
+    
+    {
+        plist_t pBuildVers = NULL;
+        retassure(pBuildVers = plist_dict_get_item(buildmanifest, "ProductVersion"), "Failed to get buildnum from ProductVersion");
+        retassure(plist_get_node_type(pBuildVers) == PLIST_STRING, "ProductVersion is not a string");
+        {
+            uint64_t len = 0;
+            buildMajorVersion = atoi(plist_get_string_ptr(pBuildVers, &len));
+        }
+        retassure(buildMajorVersion, "failed to get buildvers");
+    }
     
 #pragma mark get path for components
     ibssPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "iBSS");
@@ -735,7 +747,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
                     }
 
                     for (auto p : cfg.activePlugins) {
-                        auto ppatches = p.second->patcher('nrkr', file, size);
+                        auto ppatches = p.second->patcher('rkrn', file, size);
                         patches.insert(patches.end(), ppatches.begin(), ppatches.end());
                     }
                     
@@ -746,12 +758,12 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
                         uint64_t off = (uint64_t)((const char *)kpf->memoryForLoc(p._location) - file);
 #ifdef DEBUG
                         printf("kernel: Applying patch=%p : ",(void*)p._location);
-                        for (int i=0; i<p._patchSize; i++) {
-                            printf("%02x",((uint8_t*)p._patch)[i]);
+                        for (int i=0; i<p.getPatchSize(); i++) {
+                            printf("%02x",((uint8_t*)p.getPatch())[i]);
                         }
                         printf("\n");
 #endif
-                        memcpy(&file[off], p._patch, p._patchSize);
+                        memcpy(&file[off], p.getPatch(), p.getPatchSize());
                     }
                     
                     info("Kernel: Patches applied!");
@@ -1228,9 +1240,14 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
         std::string loadAddr = idev.getEnv("loadaddr");
         idev.sendComponent(cfg.ra1nra1n.data(), cfg.ra1nra1n.size());
 
-        std::string memcpyCommand = "memcpy 0x818000000 ";
+        std::string memcpyCommand;
+        if (buildMajorVersion >= 13) {
+            memcpyCommand = "memcpy 0x818000000 ";
+        }else{
+            memcpyCommand = "memcpy 0x820000000 ";
+        }
         memcpyCommand += loadAddr;
-        memcpyCommand += " 0x800000";
+        memcpyCommand += " 0x200000";
 
         idev.sendCommand(memcpyCommand);
     }

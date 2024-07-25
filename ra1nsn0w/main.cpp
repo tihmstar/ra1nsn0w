@@ -103,8 +103,8 @@ void exportPatchesToJson(std::map<uint32_t,std::vector<patchfinder::patch>> patc
             char curbyte[8] = {};
             std::string patch;
             snprintf(location, sizeof(location), "0x%016llx",p._location);
-            for (int i=0; i<p._patchSize; i++) {
-                snprintf(curbyte, sizeof(curbyte), "%02x",((unsigned char*)p._patch)[i]);
+            for (int i=0; i<p.getPatchSize(); i++) {
+                snprintf(curbyte, sizeof(curbyte), "%02x",((unsigned char*)p.getPatch())[i]);
                 patch += curbyte;
             }
             plist_dict_set_item(p_component, location, plist_new_string(patch.c_str()));
