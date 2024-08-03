@@ -23,6 +23,7 @@ extern "C"{
 #include <algorithm>
 #include <cctype>
 
+#include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -147,6 +148,7 @@ int main_r(int argc, const char * argv[]) {
     const char *apticketPath = NULL;
     const char *buildid = NULL;
     const char *variant = NULL;
+    char *zippath = NULL;
     uint64_t ecid = 0;
     bool waitForDevice = false;
     
@@ -237,6 +239,15 @@ int main_r(int argc, const char * argv[]) {
                 break;
             case 'w':// long option: "wait"
                 waitForDevice = true;
+                break;
+            case 'z':// long option: "keys-zip"
+                zippath = realpath(optarg, NULL);
+                if(zippath == NULL) {
+                    error("Unable to locate key zipfile at %s\n", optarg);
+                    return -6;
+                }
+                cfg.customKeysZipUrl = std::string("file://") + std::string(zippath);
+                free(zippath);
                 break;
             case 'h': // long option: "help"
                 cmd_help();

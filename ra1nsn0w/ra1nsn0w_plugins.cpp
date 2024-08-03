@@ -37,6 +37,7 @@ static struct option defaultLongopts[] = {
 
     /* Behavior config: */
     { "variant",                        required_argument,      NULL, 'V' },
+    { "keys-zip",                       required_argument,      NULL, 'z' },
     { "nobootx",                        no_argument,            NULL,  0  },
     { "just-dfu",                       no_argument,            NULL,  0  },
     { "just-iboot",                     no_argument,            NULL,  0  },
@@ -127,6 +128,7 @@ static const char defaultHelpScreen[] =
 "      --ota\t\t\t\t\tFirmwarefile is ota.zip rather than firmware.ipsw\n" \
 "\nBehavior config:\n" \
 "  -V, --variant <VARIANT>\t\t\tSpecify restore variant to use\n" \
+"  -z, --keys-zip <path>\t\t\t\tSpecify a zip file containing key json data, instead of using an online database or local server\n" \
 "      --decrypt-devicetree\t\t\tSend devicetree decrypted (Usually we wouldn't touch that)\n" \
 "      --iboot-as-ibect\t\t\t\tBoot iBoot instead of iBEC\n" \
 "      --just-dfu\t\t\t\tStop in DFU mode\n" \
@@ -372,7 +374,7 @@ static void updateLongopts(void){
 
 #pragma mark public
 const char *ra1nsn0w::getShortOpts(void){
-    return "ht:B:e:wv:k:r:s:c:l:b:V:";
+    return "ht:B:e:wv:k:r:s:c:l:b:V:z:";
 }
 
 const struct option *ra1nsn0w::getLongOpts(void){
