@@ -331,7 +331,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     tihmstar::Mem rsepData;
     tihmstar::Mem rdskData;
 
-    uint64_t cpid = 0;
+    uint32_t cpid = 0;
     bool isIMG4 = idev.supportsIMG4();
     bool isRestorePlist = false;
     
@@ -455,7 +455,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
         retassure(p_ApChipID = plist_dict_get_item(buildidentity, "ApChipID"), "Failed to get ApChipID from BuildIdentity");
         retassure(plist_get_node_type(p_ApChipID) == PLIST_STRING, "ApChipID is not of type PLIST_STRING");
         retassure(ApChipID_str = plist_get_string_ptr(p_ApChipID, &ApChipID_str_len),"Failed to get ApChipID str ptr");
-        sscanf(ApChipID_str, "0x%llx",&cpid);
+        sscanf(ApChipID_str, "0x%x",&cpid);
         retassure(cpid,"Failed to parse cpid");
         info("Got CPID=0x%llx",cpid);
     }
