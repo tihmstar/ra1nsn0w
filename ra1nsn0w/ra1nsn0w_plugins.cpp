@@ -33,6 +33,7 @@ static struct option defaultLongopts[] = {
     { "dry-run",                        required_argument,      NULL,  0  },
     { "dry-out",                        required_argument,      NULL,  0  },
     { "export-patches",                 required_argument,      NULL,  0  },
+    { "keys-zip",                       required_argument,      NULL,  0  },
     { "ota",                            no_argument,            NULL,  0  },
 
     /* Behavior config: */
@@ -124,6 +125,7 @@ static const char defaultHelpScreen[] =
 "      --dry-run <device>:<hardware>:<img4>\tTest all patches, but don't actually send anything to device. Emulate device (eg. iPhone6,2:n53ap:1)\n" \
 "      --dry-out <path>\t\t\t\tInstead of sending components to device, write them to the specified directory\n" \
 "      --export-patches <patches.json>\t\tExport patches to a json file\n" \
+"      --keys-zip <path>\t\t\t\tSpecify a zip file containing key json data, instead of using an online database or local server\n" \
 "      --ota\t\t\t\t\tFirmwarefile is ota.zip rather than firmware.ipsw\n" \
 "\nBehavior config:\n" \
 "  -V, --variant <VARIANT>\t\t\tSpecify restore variant to use\n" \

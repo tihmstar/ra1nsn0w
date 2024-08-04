@@ -190,10 +190,20 @@ int main_r(int argc, const char * argv[]) {
                 
                 if (curopt == "dry-run") {
                     dryRunDevice = optarg;
-                }else if (curopt == "dry-out") {
+                } else if (curopt == "dry-out") {
                     dryRunOutPath = optarg;
-                }else if (curopt == "export-patches") {
+                } else if (curopt == "export-patches") {
                     exportPatchesPath = optarg;
+                } else if (curopt == "keys-zip") {
+                    if (strncmp(optarg, "http", 4) != 0) {
+                        //local path?
+                        if (!tihmstar::fileExists(optarg)) {
+                            error("Unable to locate key zipfile at '%s'\n", optarg);
+                            return -6;
+                        }
+                        cfg.customKeysZipUrl = "file://";
+                    }
+                    cfg.customKeysZipUrl += optarg;
                 } else if (!ra1nsn0w::parseArgument(cfg, curopt, optarg)) {
                     error("Unknown longopt '%s'",curopt.c_str());
                     return -5;
