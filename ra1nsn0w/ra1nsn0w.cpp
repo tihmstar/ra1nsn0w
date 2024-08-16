@@ -395,7 +395,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             wtfpayload = img1tool::getPayloadFromIMG1(wtfBuf, wtfBufSize);
             
             info("Patching WTF...");
-            int patchret = 0;
+            int patchret = -1;
             for (int i=0; i<3; i++){
                 bootconfig wtf_bootcfg = bootcfg;
                 launchConfig wtf_launchcfg = *bootcfg.launchcfg;
