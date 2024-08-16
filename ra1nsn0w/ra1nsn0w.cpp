@@ -396,7 +396,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             
             info("Patching WTF...");
             int patchret = 0;
-            for (int i=0; i<2; i++){
+            for (int i=0; i<3; i++){
                 bootconfig wtf_bootcfg = bootcfg;
                 launchConfig wtf_launchcfg = *bootcfg.launchcfg;
                 wtf_bootcfg.curPatchComponent = '.ftw'; //wtf. (not actually a thing)
@@ -424,6 +424,9 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
                 try {
                     patchret = iBootPatchFunc((char*)wtfpayload.data(), wtfpayload.size(), (void*)&wtf_bootcfg);
                 } catch (tihmstar::exception &e) {
+#ifdef DEBUG
+                    e.dump();
+#endif
                     continue;
                 }
                 if (!patchret) break;
