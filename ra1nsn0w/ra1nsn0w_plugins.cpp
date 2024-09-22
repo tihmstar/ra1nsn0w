@@ -23,8 +23,12 @@ PluginObj::~PluginObj(){
 }
 
 static struct option defaultLongopts[] = {
-    /* Device selectors: */
+    /* General: */
     { "help",                           no_argument,            NULL, 'h' },
+    { "input",                          required_argument,      NULL, 'i' },
+    { "output",                         required_argument,      NULL, 'o' },
+
+    /* Device selectors: */
     { "apticket",                       required_argument,      NULL, 't' },
     { "buildid",                        required_argument,      NULL, 'B' },
     { "ecid",                           required_argument,      NULL, 'e' },
@@ -109,14 +113,22 @@ static struct option defaultLongopts[] = {
     { "kpatch-apfs-skip-authenticated-root-hash",optional_argument,NULL,  0  },
     { "sn0wsn0w",                       no_argument,            NULL,  0  },
     
+    /* Extra: */
+    { "iv",                             required_argument,      NULL,  0  },
+    { "key",                            required_argument,      NULL,  0  },
+
     { NULL, 0, NULL, 0 }
 };
 
-static const char defaultHelpScreen[] =
-"Usage: ra1nsn0w [OPTIONS] [IPSW]\n" \
-"Multipurpose tool for launching custom bootchain\n\n" \
-"Device selectors:\n" \
+static const char helpScreenGeneral[] =
+"General:\n" \
 "  -h, --help\t\t\t\t\tDisplays this helpscreen\n" \
+"      --export-patches <patches.json>\t\tExport patches to a json file\n" \
+"      --keys-zip <path>\t\t\t\tSpecify a zip file containing key json data, instead of using an online database or local server\n" \
+"\n";
+
+static const char helpScreenDeviceSelectors[] =
+"Device selectors:\n" \
 "  -t, --apticket PATH\t\t\t\tApticket use for bypassing sigchecks (Note: current sigcheck patches require an APTicket)\n" \
 "  -B  --buildid BUILDID\t\t\t\tspecific buildid instead of iOS ipsw path\n" \
 "  -e, --ecid ECID\t\t\t\tTarget specific device by its device ECID\n" \
@@ -124,10 +136,10 @@ static const char defaultHelpScreen[] =
 "      --32bit\t\t\t\t\tUse 32bit patchfinder instead of 64bit\n" \
 "      --dry-run <device>:<hardware>:<img4>\tTest all patches, but don't actually send anything to device. Emulate device (eg. iPhone6,2:n53ap:1)\n" \
 "      --dry-out <path>\t\t\t\tInstead of sending components to device, write them to the specified directory\n" \
-"      --export-patches <patches.json>\t\tExport patches to a json file\n" \
-"      --keys-zip <path>\t\t\t\tSpecify a zip file containing key json data, instead of using an online database or local server\n" \
-"      --ota\t\t\t\t\tFirmwarefile is ota.zip rather than firmware.ipsw\n" \
-"\nBehavior config:\n" \
+"\n";
+
+static const char helpScreenBehaviorConfig[] =
+"Behavior config:\n" \
 "  -V, --variant <VARIANT>\t\t\tSpecify restore variant to use\n" \
 "      --decrypt-devicetree\t\t\tSend devicetree decrypted (Usually we wouldn't touch that)\n" \
 "      --iboot-as-ibect\t\t\t\tBoot iBoot instead of iBEC\n" \
@@ -136,8 +148,12 @@ static const char defaultHelpScreen[] =
 "      --nobootx\t\t\t\t\tDon't run \"bootx\" command\n" \
 "      --no-decrypt\t\t\t\tDo not decrypt files\n" \
 "      --no-sep\t\t\t\t\tDo not boot rsep\n" \
+"      --ota\t\t\t\t\tFirmwarefile is ota.zip rather than firmware.ipsw\n" \
 "      --srd\t\t\t\t\tRequest ticket on-the-fly (for SRD)\n" \
-"\nCustomized boot:\n" \
+"\n";
+
+static const char helpScreenCustomizedBoot[] =
+"Customized boot:\n" \
 "  -k, --kernel <path>\t\t\t\tManually specify a kernel.im4p to boot\n" \
 "  -r, --ramdisk <path>\t\t\t\tManually specify a ramdisk.im4p to boot\n" \
 "  -s, --sep <path>\t\t\t\tManually specify a sep.im4p to boot\n" \
@@ -148,13 +164,16 @@ static const char defaultHelpScreen[] =
 "      --ibec <path>\t\t\t\tManually specify a iBEC to boot\n" \
 "      --ibss <path>\t\t\t\tManually specify a iBSS to boot\n" \
 "      --patch=<component>:<addr1>,<patch1>\tManually specify a patch to a component\n" \
-"      --send-all-components\t\tSend all components that iboot expects\n" \
+"      --send-all-components\t\t\tSend all components that iboot expects\n" \
 "      --sreplace=<component>:<findstr,replacestr>;... Patch replace string with other string\n" \
-"\niBEC patches:\n" \
+"\n";
+
+static const char helpScreeniBootPatches[] =
+"iBoot patches:\n" \
 "  -b, --boot-args ARGS\t\t\t\tSpecify kernel bootargs\n" \
 "      --iboot-nopatch\t\t\t\tDon't modify iBoot (iBSS/iBEC) IM4P and send as it is (only rename to rkrn)\n" \
 "      --iboot-no-sigpatch\t\t\tDon't apply iBSS/iBEC sigpatches (WARNING: device will not boot past this bootloader!)\n" \
-"      --iboot-send-signed-sep\tGet a valid ticket and send RestoreSEP\n" \
+"      --iboot-send-signed-sep\t\t\tGet a valid ticket and send RestoreSEP\n" \
 "      --ipatch-add-rw-and-rx-mappings\t\tSets iBoot block writeable at 0x2000000 and loadaddr block executable at 0x4000000\n" \
 "      --ipatch-always-production\t\tPretend we're in production mode even though we may be demoted\n" \
 "      --ipatch-always-sepfw-booted\t\tAlways set 'sepfw-booted' in devicetree\n" \
@@ -174,7 +193,10 @@ static const char defaultHelpScreen[] =
 "      --ipatch-sep-skip-lock\t\t\tDon't lock tz0 registers by iBoot\n" \
 "      --ipatch-wtf-pwndfu\t\t\tPatch WTF image to act as PWNDFU\n" \
 "      --ra1nra1n <path>\t\t\t\tExecute payload before jumping to kernel\n" \
-"\nKernel patches:\n" \
+"\n";
+
+static const char helpScreenKernelPatches[] =
+"Kernel patches:\n" \
 "     --kernel-nopatch\t\t\t\tDon't modify kernel IM4P and send as it is (only rename to rkrn)\n" \
 "     --kpatch-add-read-bpr\t\t\tAllow reading BPR status by overwriting syscall 213\n" \
 "     --kpatch-allow-uid\t\t\t\tAllow using UID key for enc/dec from userspace\n" \
@@ -197,8 +219,7 @@ static const char defaultHelpScreen[] =
 "     --kpatch-tfp0\t\t\t\tAllow calling task_for_pid(0)\n" \
 "     --kpatch-tfp-unrestrict\t\t\tAllow anyone calling task_for_pid()\n" \
 "     --sn0wsn0w\t\t\t\t\tApply generic kernelpatches\n" \
-"\n" \
-;
+"\n";
 
 
 #ifndef HAVE_STRTOUL_L
@@ -343,16 +364,28 @@ static bool defaultparseArgument(launchConfig &cfg, std::string curopt, const ch
 #pragma mark helper vars
 static tihmstar::Typed_Mem<struct option> gLongopts;
 static std::string gCmdHelperString;
+static std::string gCmdHelperStringPlugins;
 static std::set<const Plugin*> gPlugins;
+
+static void updateCmdHelperStringPlugins(void){
+    gCmdHelperStringPlugins.clear();
+    if (gPlugins.size()) {
+        gCmdHelperStringPlugins += "------------ PLUGINS ------------\n";
+        for (auto p : gPlugins) {
+            gCmdHelperStringPlugins += p->cmdHelp;
+            gCmdHelperStringPlugins += "\n";
+        }
+    }
+}
 
 static void updateCmdHelperString(void){
     gCmdHelperString.clear();
-    gCmdHelperString += defaultHelpScreen;
-    gCmdHelperString += "------------ PLUGINS ------------\n";
-    for (auto p : gPlugins) {
-        gCmdHelperString += p->cmdHelp;
-        gCmdHelperString += "\n";
-    }
+    gCmdHelperString += helpScreenGeneral;
+    gCmdHelperString += helpScreenDeviceSelectors;
+    gCmdHelperString += helpScreenBehaviorConfig;
+    gCmdHelperString += helpScreenCustomizedBoot;
+    gCmdHelperString += helpScreeniBootPatches;
+    gCmdHelperString += helpScreenKernelPatches;
 }
 
 static void updateLongopts(void){
@@ -373,16 +406,35 @@ static void updateLongopts(void){
 }
 
 #pragma mark public
+#pragma mark helpscreen
+const char *ra1nsn0w::getCmdHelpString(void){
+    if (!gCmdHelperString.size()) updateCmdHelperString();
+    return gCmdHelperString.c_str();
+}
+
+const char *ra1nsn0w::getCmdHelpStringPlugins(void){
+    if (!gCmdHelperStringPlugins.size()) updateCmdHelperStringPlugins();
+    return gCmdHelperStringPlugins.c_str();
+}
+
+const char *ra1nsn0w::getCmdHelpStringGeneral(void){
+    return helpScreenGeneral;
+}
+
+const char *ra1nsn0w::getCmdHelpStringiBoot(void){
+    return helpScreeniBootPatches;
+}
+
+const char *ra1nsn0w::getCmdHelpStringKernel(void){
+    return helpScreenKernelPatches;
+}
+
 const char *ra1nsn0w::getShortOpts(void){
     return "ht:B:e:wv:k:r:s:c:l:b:V:";
 }
 
 const struct option *ra1nsn0w::getLongOpts(void){
     return gLongopts.mem().size() > sizeof(defaultLongopts) ? gLongopts : defaultLongopts;
-}
-
-const char *ra1nsn0w::getCmdHelpString(void){
-    return gCmdHelperString.size() ? gCmdHelperString.c_str() : defaultHelpScreen;
 }
 
 #pragma mark argparser
@@ -398,10 +450,11 @@ bool ra1nsn0w::parseArgument(launchConfig &cfg, std::string curopt, const char *
     return false;
 }
 
+#pragma mark plugins
 void ra1nsn0w::pluginRegister(const Plugin *plugin){
 #ifdef WITH_PLUGIN_SUPPORT
     gPlugins.insert(plugin);
-    updateCmdHelperString();
+    updateCmdHelperStringPlugins();
     updateLongopts();
 #else
     error("ra1nsn0w::pluginRegister called, but ra1nsn0w was built without plugin support!");
@@ -411,7 +464,7 @@ void ra1nsn0w::pluginRegister(const Plugin *plugin){
 void ra1nsn0w::pluginUnregister(const Plugin *plugin){
 #ifdef WITH_PLUGIN_SUPPORT
     gPlugins.erase(plugin);
-    updateCmdHelperString();
+    updateCmdHelperStringPlugins();
     updateLongopts();
 #else
     error("ra1nsn0w::pluginUnregister called, but ra1nsn0w was built without plugin support!");

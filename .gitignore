@@ -11,8 +11,8 @@ compile
 config.*
 configure
 depcomp
-*/.deps
-*/.libs
+.deps
+.libs
 Makefile
 Makefile.in
 install-sh
@@ -30,3 +30,5 @@ ra1nsn0w/ra1nsn0w
 configure~
 project.xcworkspace
 xcshareddata
+tools/iBootPatcher/iBootPatcher
+tools/kernelPatcher/kernelPatcher

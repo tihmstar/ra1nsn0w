@@ -29,8 +29,9 @@ libra1nsn0w_la_LDFLAGS = $(AM_LDFLAGS)
 
 ra1nsn0w_LDADD = libra1nsn0w.la
 libra1nsn0w_la_SOURCES =    iOSDevice.cpp \
-                            ra1nsn0w.cpp \
                             ra1nsn0w_argparser.cpp \
+                            ra1nsn0w_launch.cpp \
+                            ra1nsn0w_patch.cpp \
                             ra1nsn0w_plugins.cpp
 
 ra1nsn0w_SOURCES = 	main.cpp

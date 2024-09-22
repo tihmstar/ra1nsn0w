@@ -1,0 +1,1 @@
+SUBDIRS=iBootPatcher kernelPatcher

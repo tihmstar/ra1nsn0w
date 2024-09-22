@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2A24F8302B5EF26900DEC781 /* ra1nsn0w.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA71D2376FA4C00AB878C /* ra1nsn0w.cpp */; };
+		2A24F8302B5EF26900DEC781 /* ra1nsn0w_launch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA71D2376FA4C00AB878C /* ra1nsn0w_launch.cpp */; };
 		2A24F8332B5EF27B00DEC781 /* iOSDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA7342376FF1800AB878C /* iOSDevice.cpp */; };
 		2A24F8652B5F0EB600DEC781 /* ra1nsn0w_argparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2A24F81A2B5EE02C00DEC781 /* ra1nsn0w_argparser.cpp */; };
 		2A5B337D2A55E17400763907 /* libtsschecker.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A9F8E3729B3949E00D57851 /* libtsschecker.0.dylib */; };
@@ -33,6 +33,31 @@
 		2A5B33932A55E1F500763907 /* libcrypto.3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2AD2CFC52971E74600F8D5E4 /* libcrypto.3.dylib */; };
 		2A5B33942A55E1F500763907 /* libcrypto.3.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 2AD2CFC52971E74600F8D5E4 /* libcrypto.3.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		876724F82B5FB9600036188D /* ra1nsn0w_plugins.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2A24F8182B5EDB8B00DEC781 /* ra1nsn0w_plugins.cpp */; };
+		87DE5F3F2CA000A700F854BD /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87DE5F3E2CA000A700F854BD /* main.cpp */; };
+		87DE5F422CA00C9900F854BD /* ra1nsn0w_argparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2A24F81A2B5EE02C00DEC781 /* ra1nsn0w_argparser.cpp */; };
+		87DE5F432CA00C9900F854BD /* ra1nsn0w_plugins.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2A24F8182B5EDB8B00DEC781 /* ra1nsn0w_plugins.cpp */; };
+		87DE5F4C2CA00EA400F854BD /* ra1nsn0w_patch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87DE5F4B2CA00EA400F854BD /* ra1nsn0w_patch.cpp */; };
+		87DE5F4D2CA00EA400F854BD /* ra1nsn0w_patch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87DE5F4B2CA00EA400F854BD /* ra1nsn0w_patch.cpp */; };
+		87DE5F4E2CA0106400F854BD /* libgeneral.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA7192376F39400AB878C /* libgeneral.0.dylib */; };
+		87DE5F4F2CA0106400F854BD /* libgeneral.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA7192376F39400AB878C /* libgeneral.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		87DE5F512CA0106F00F854BD /* libpatchfinder.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87F83B4C26986486006D5C45 /* libpatchfinder.0.dylib */; };
+		87DE5F522CA0106F00F854BD /* libpatchfinder.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87F83B4C26986486006D5C45 /* libpatchfinder.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		87DE5F532CA0107E00F854BD /* libipatcher.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA72E2376FC5C00AB878C /* libipatcher.0.dylib */; };
+		87DE5F542CA0107E00F854BD /* libipatcher.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA72E2376FC5C00AB878C /* libipatcher.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		87DE5F552CA0111F00F854BD /* libplist-2.0.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A5B338A2A55E1C600763907 /* libplist-2.0.4.dylib */; };
+		87DE5F562CA0111F00F854BD /* libplist-2.0.4.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 2A5B338A2A55E1C600763907 /* libplist-2.0.4.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		87DE5F642CA01DD500F854BD /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87DE5F632CA01DD500F854BD /* main.cpp */; };
+		87DE5F652CA01E7700F854BD /* libplist-2.0.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 2A5B338A2A55E1C600763907 /* libplist-2.0.4.dylib */; };
+		87DE5F662CA01E7700F854BD /* libplist-2.0.4.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 2A5B338A2A55E1C600763907 /* libplist-2.0.4.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		87DE5F682CA01E7F00F854BD /* libgeneral.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA7192376F39400AB878C /* libgeneral.0.dylib */; };
+		87DE5F692CA01E7F00F854BD /* libgeneral.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA7192376F39400AB878C /* libgeneral.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		87DE5F6A2CA01E8900F854BD /* libipatcher.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87EBA72E2376FC5C00AB878C /* libipatcher.0.dylib */; };
+		87DE5F6B2CA01E8900F854BD /* libipatcher.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87EBA72E2376FC5C00AB878C /* libipatcher.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		87DE5F6C2CA01E9000F854BD /* libpatchfinder.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 87F83B4C26986486006D5C45 /* libpatchfinder.0.dylib */; };
+		87DE5F6D2CA01E9000F854BD /* libpatchfinder.0.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 87F83B4C26986486006D5C45 /* libpatchfinder.0.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		87DE5F6E2CA01E9D00F854BD /* ra1nsn0w_plugins.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2A24F8182B5EDB8B00DEC781 /* ra1nsn0w_plugins.cpp */; };
+		87DE5F6F2CA01EA200F854BD /* ra1nsn0w_patch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87DE5F4B2CA00EA400F854BD /* ra1nsn0w_patch.cpp */; };
+		87DE5F702CA01EB200F854BD /* ra1nsn0w_argparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2A24F81A2B5EE02C00DEC781 /* ra1nsn0w_argparser.cpp */; };
 		87EBA7122376F32A00AB878C /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 87EBA7112376F32A00AB878C /* main.cpp */; };
 /* End PBXBuildFile section */
 
@@ -54,6 +79,52 @@
 				2A5B33902A55E1DC00763907 /* libfragmentzip.0.dylib in Embed Libraries */,
 				2A5B338E2A55E1D100763907 /* libirecovery-1.0.3.dylib in Embed Libraries */,
 				2A5B337E2A55E17400763907 /* libtsschecker.0.dylib in Embed Libraries */,
+			);
+			name = "Embed Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		87DE5F322CA0002A00F854BD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		87DE5F502CA0106400F854BD /* Embed Libraries */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				87DE5F562CA0111F00F854BD /* libplist-2.0.4.dylib in Embed Libraries */,
+				87DE5F4F2CA0106400F854BD /* libgeneral.0.dylib in Embed Libraries */,
+				87DE5F542CA0107E00F854BD /* libipatcher.0.dylib in Embed Libraries */,
+				87DE5F522CA0106F00F854BD /* libpatchfinder.0.dylib in Embed Libraries */,
+			);
+			name = "Embed Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		87DE5F592CA01DA800F854BD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		87DE5F672CA01E7700F854BD /* Embed Libraries */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				87DE5F662CA01E7700F854BD /* libplist-2.0.4.dylib in Embed Libraries */,
+				87DE5F6D2CA01E9000F854BD /* libpatchfinder.0.dylib in Embed Libraries */,
+				87DE5F6B2CA01E8900F854BD /* libipatcher.0.dylib in Embed Libraries */,
+				87DE5F692CA01E7F00F854BD /* libgeneral.0.dylib in Embed Libraries */,
 			);
 			name = "Embed Libraries";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -82,10 +153,18 @@
 		872846DB25AEF80D00385BCA /* libirecovery-1.0.3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libirecovery-1.0.3.dylib"; path = "../../../../usr/local/lib/libirecovery-1.0.3.dylib"; sourceTree = "<group>"; };
 		872846DE25AEF81E00385BCA /* libplist-2.0.3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libplist-2.0.3.dylib"; path = "../../../../usr/local/lib/libplist-2.0.3.dylib"; sourceTree = "<group>"; };
 		87974BF623783D1D00DC1599 /* liboffsetfinder64.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = liboffsetfinder64.0.dylib; path = ../../../../usr/local/lib/liboffsetfinder64.0.dylib; sourceTree = "<group>"; };
+		87DE5F342CA0002A00F854BD /* iBootPatcher */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iBootPatcher; sourceTree = BUILT_PRODUCTS_DIR; };
+		87DE5F3E2CA000A700F854BD /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
+		87DE5F462CA00D1600F854BD /* ra1nsn0w_defs.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = ra1nsn0w_defs.hpp; path = include/ra1nsn0w/ra1nsn0w_defs.hpp; sourceTree = SOURCE_ROOT; };
+		87DE5F482CA00E2E00F854BD /* ra1nsn0w_launch.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = ra1nsn0w_launch.hpp; path = include/ra1nsn0w/ra1nsn0w_launch.hpp; sourceTree = SOURCE_ROOT; };
+		87DE5F4A2CA00E6400F854BD /* ra1nsn0w_patch.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = ra1nsn0w_patch.hpp; path = include/ra1nsn0w/ra1nsn0w_patch.hpp; sourceTree = SOURCE_ROOT; };
+		87DE5F4B2CA00EA400F854BD /* ra1nsn0w_patch.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ra1nsn0w_patch.cpp; sourceTree = "<group>"; };
+		87DE5F5B2CA01DA800F854BD /* kernelPatcher */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kernelPatcher; sourceTree = BUILT_PRODUCTS_DIR; };
+		87DE5F632CA01DD500F854BD /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		87EBA70E2376F32A00AB878C /* ra1nsn0w */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ra1nsn0w; sourceTree = BUILT_PRODUCTS_DIR; };
 		87EBA7112376F32A00AB878C /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		87EBA7192376F39400AB878C /* libgeneral.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libgeneral.0.dylib; path = ../../../../usr/local/lib/libgeneral.0.dylib; sourceTree = "<group>"; };
-		87EBA71D2376FA4C00AB878C /* ra1nsn0w.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ra1nsn0w.cpp; sourceTree = "<group>"; };
+		87EBA71D2376FA4C00AB878C /* ra1nsn0w_launch.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ra1nsn0w_launch.cpp; sourceTree = "<group>"; };
 		87EBA7232376FC0400AB878C /* libplist.3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libplist.3.dylib; path = ../../../../usr/local/lib/libplist.3.dylib; sourceTree = "<group>"; };
 		87EBA7262376FC1900AB878C /* libcryptopp.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcryptopp.dylib; path = ../../../../usr/local/Cellar/cryptopp/8.1.0/lib/libcryptopp.dylib; sourceTree = "<group>"; };
 		87EBA7292376FC2800AB878C /* libz.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libz.tbd; path = usr/lib/libz.tbd; sourceTree = SDKROOT; };
@@ -101,6 +180,28 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		87DE5F312CA0002A00F854BD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				87DE5F552CA0111F00F854BD /* libplist-2.0.4.dylib in Frameworks */,
+				87DE5F4E2CA0106400F854BD /* libgeneral.0.dylib in Frameworks */,
+				87DE5F532CA0107E00F854BD /* libipatcher.0.dylib in Frameworks */,
+				87DE5F512CA0106F00F854BD /* libpatchfinder.0.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		87DE5F582CA01DA800F854BD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				87DE5F652CA01E7700F854BD /* libplist-2.0.4.dylib in Frameworks */,
+				87DE5F6C2CA01E9000F854BD /* libpatchfinder.0.dylib in Frameworks */,
+				87DE5F6A2CA01E8900F854BD /* libipatcher.0.dylib in Frameworks */,
+				87DE5F682CA01E7F00F854BD /* libgeneral.0.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		87EBA70B2376F32A00AB878C /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -122,10 +223,30 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		87DE5F3B2CA0005E00F854BD /* iBootPatcher */ = {
+			isa = PBXGroup;
+			children = (
+				87DE5F3E2CA000A700F854BD /* main.cpp */,
+			);
+			name = iBootPatcher;
+			path = tools/iBootPatcher;
+			sourceTree = "<group>";
+		};
+		87DE5F622CA01DC000F854BD /* kernelPatcher */ = {
+			isa = PBXGroup;
+			children = (
+				87DE5F632CA01DD500F854BD /* main.cpp */,
+			);
+			name = kernelPatcher;
+			path = tools/kernelPatcher;
+			sourceTree = "<group>";
+		};
 		87EBA7052376F32A00AB878C = {
 			isa = PBXGroup;
 			children = (
 				87EBA7102376F32A00AB878C /* ra1nsn0w */,
+				87DE5F3B2CA0005E00F854BD /* iBootPatcher */,
+				87DE5F622CA01DC000F854BD /* kernelPatcher */,
 				87EBA70F2376F32A00AB878C /* Products */,
 				87EBA7182376F39400AB878C /* Frameworks */,
 			);
@@ -135,6 +256,8 @@
 			isa = PBXGroup;
 			children = (
 				87EBA70E2376F32A00AB878C /* ra1nsn0w */,
+				87DE5F342CA0002A00F854BD /* iBootPatcher */,
+				87DE5F5B2CA01DA800F854BD /* kernelPatcher */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -145,7 +268,11 @@
 				87091E4C266E307C00C7C66C /* iOSDevice.hpp */,
 				87EBA7342376FF1800AB878C /* iOSDevice.cpp */,
 				87091E4D266E307C00C7C66C /* ra1nsn0w.hpp */,
-				87EBA71D2376FA4C00AB878C /* ra1nsn0w.cpp */,
+				87DE5F462CA00D1600F854BD /* ra1nsn0w_defs.hpp */,
+				87DE5F482CA00E2E00F854BD /* ra1nsn0w_launch.hpp */,
+				87EBA71D2376FA4C00AB878C /* ra1nsn0w_launch.cpp */,
+				87DE5F4A2CA00E6400F854BD /* ra1nsn0w_patch.hpp */,
+				87DE5F4B2CA00EA400F854BD /* ra1nsn0w_patch.cpp */,
 				2A24F81C2B5EE55F00DEC781 /* ra1nsn0w_plugins.hpp */,
 				2A24F8182B5EDB8B00DEC781 /* ra1nsn0w_plugins.cpp */,
 				2A24F81A2B5EE02C00DEC781 /* ra1nsn0w_argparser.cpp */,
@@ -183,6 +310,46 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		87DE5F332CA0002A00F854BD /* iBootPatcher */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 87DE5F3A2CA0002A00F854BD /* Build configuration list for PBXNativeTarget "iBootPatcher" */;
+			buildPhases = (
+				87DE5F302CA0002A00F854BD /* Sources */,
+				87DE5F312CA0002A00F854BD /* Frameworks */,
+				87DE5F322CA0002A00F854BD /* CopyFiles */,
+				87DE5F502CA0106400F854BD /* Embed Libraries */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = iBootPatcher;
+			packageProductDependencies = (
+			);
+			productName = iBootPatcher;
+			productReference = 87DE5F342CA0002A00F854BD /* iBootPatcher */;
+			productType = "com.apple.product-type.tool";
+		};
+		87DE5F5A2CA01DA800F854BD /* kernelPatcher */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 87DE5F5F2CA01DA800F854BD /* Build configuration list for PBXNativeTarget "kernelPatcher" */;
+			buildPhases = (
+				87DE5F572CA01DA800F854BD /* Sources */,
+				87DE5F582CA01DA800F854BD /* Frameworks */,
+				87DE5F592CA01DA800F854BD /* CopyFiles */,
+				87DE5F672CA01E7700F854BD /* Embed Libraries */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = kernelPatcher;
+			packageProductDependencies = (
+			);
+			productName = kernelPatcher;
+			productReference = 87DE5F5B2CA01DA800F854BD /* kernelPatcher */;
+			productType = "com.apple.product-type.tool";
+		};
 		87EBA70D2376F32A00AB878C /* ra1nsn0w */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 87EBA7152376F32A00AB878C /* Build configuration list for PBXNativeTarget "ra1nsn0w" */;
@@ -210,6 +377,12 @@
 				LastUpgradeCheck = 1110;
 				ORGANIZATIONNAME = tihmstar;
 				TargetAttributes = {
+					87DE5F332CA0002A00F854BD = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					87DE5F5A2CA01DA800F854BD = {
+						CreatedOnToolsVersion = 16.0;
+					};
 					87EBA70D2376F32A00AB878C = {
 						CreatedOnToolsVersion = 11.1;
 					};
@@ -229,19 +402,44 @@
 			projectRoot = "";
 			targets = (
 				87EBA70D2376F32A00AB878C /* ra1nsn0w */,
+				87DE5F332CA0002A00F854BD /* iBootPatcher */,
+				87DE5F5A2CA01DA800F854BD /* kernelPatcher */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
+		87DE5F302CA0002A00F854BD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				87DE5F3F2CA000A700F854BD /* main.cpp in Sources */,
+				87DE5F422CA00C9900F854BD /* ra1nsn0w_argparser.cpp in Sources */,
+				87DE5F432CA00C9900F854BD /* ra1nsn0w_plugins.cpp in Sources */,
+				87DE5F4D2CA00EA400F854BD /* ra1nsn0w_patch.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		87DE5F572CA01DA800F854BD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				87DE5F6E2CA01E9D00F854BD /* ra1nsn0w_plugins.cpp in Sources */,
+				87DE5F6F2CA01EA200F854BD /* ra1nsn0w_patch.cpp in Sources */,
+				87DE5F642CA01DD500F854BD /* main.cpp in Sources */,
+				87DE5F702CA01EB200F854BD /* ra1nsn0w_argparser.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		87EBA70A2376F32A00AB878C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				87EBA7122376F32A00AB878C /* main.cpp in Sources */,
-				2A24F8302B5EF26900DEC781 /* ra1nsn0w.cpp in Sources */,
+				2A24F8302B5EF26900DEC781 /* ra1nsn0w_launch.cpp in Sources */,
 				2A24F8332B5EF27B00DEC781 /* iOSDevice.cpp in Sources */,
 				2A24F8652B5F0EB600DEC781 /* ra1nsn0w_argparser.cpp in Sources */,
+				87DE5F4C2CA00EA400F854BD /* ra1nsn0w_patch.cpp in Sources */,
 				876724F82B5FB9600036188D /* ra1nsn0w_plugins.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -249,6 +447,70 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		87DE5F382CA0002A00F854BD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.5;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		87DE5F392CA0002A00F854BD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.5;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		87DE5F602CA01DA800F854BD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.5;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		87DE5F612CA01DA800F854BD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.5;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		87EBA7132376F32A00AB878C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -292,6 +554,11 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
+					XCODE,
+					HAVE_OPENSSL,
+					HAVE_STRTOUL_L,
+					HAVE_IMG1TOOL,
+					WITH_PLUGIN_SUPPORT,
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -299,6 +566,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/include",
+					/usr/local/include,
+				);
+				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -351,6 +623,11 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)/include",
+					/usr/local/include,
+				);
+				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -365,14 +642,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
-					XCODE,
-					HAVE_OPENSSL,
-					HAVE_STRTOUL_L,
-					HAVE_IMG1TOOL,
-					WITH_PLUGIN_SUPPORT,
 				);
-				HEADER_SEARCH_PATHS = /usr/local/include;
-				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -381,8 +651,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				HEADER_SEARCH_PATHS = /usr/local/include;
-				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -390,6 +658,24 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		87DE5F3A2CA0002A00F854BD /* Build configuration list for PBXNativeTarget "iBootPatcher" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				87DE5F382CA0002A00F854BD /* Debug */,
+				87DE5F392CA0002A00F854BD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		87DE5F5F2CA01DA800F854BD /* Build configuration list for PBXNativeTarget "kernelPatcher" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				87DE5F602CA01DA800F854BD /* Debug */,
+				87DE5F612CA01DA800F854BD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		87EBA7092376F32A00AB878C /* Build configuration list for PBXProject "ra1nsn0w" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

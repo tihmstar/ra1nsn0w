@@ -14,6 +14,7 @@
 #include <libgeneral/Utils.hpp>
 #include <libipatcher/libipatcher.hpp>
 #include <img4tool/img4tool.hpp>
+#include <img3tool/img3tool.hpp>
 
 extern "C"{
 #include <libfragmentzip/libfragmentzip.h>
@@ -76,49 +77,23 @@ char *im4mFormShshFile(const char *shshfile, size_t *outSize, char **generator){
 }
 
 void cmd_help(){
+    printf(
+           "\n"
+           "Usage: ra1nsn0w [OPTIONS] [IPSW]\n" \
+           "Multipurpose tool for launching custom bootchain\n" \
+           "\n"
+    );
     const char *helpScreen = ra1nsn0w::getCmdHelpString();
     printf("%s",helpScreen);
-}
-
-void exportPatchesToJson(std::map<uint32_t,std::vector<patchfinder::patch>> patches, const char *outfilePath){
-    plist_t p_patches = NULL;
-    char *json = NULL;
-    cleanup([&]{
-        safeFree(json);
-        safeFreeCustom(p_patches, plist_free);
-    });
-    uint32_t jsonSize = 0;
-    p_patches = plist_new_dict();
-    for (auto cp : patches) {
-        plist_t p_component = NULL;
-        cleanup([&]{
-            safeFreeCustom(p_component, plist_free);
-        });
-        char componentName[8] = {};
-        memcpy(componentName, &cp.first, 4);
-        p_component = plist_new_dict();
-
-        for (auto p : cp.second) {
-            char location[0x20] = {};
-            char curbyte[8] = {};
-            std::string patch;
-            snprintf(location, sizeof(location), "0x%016llx",p._location);
-            for (int i=0; i<p.getPatchSize(); i++) {
-                snprintf(curbyte, sizeof(curbyte), "%02x",((unsigned char*)p.getPatch())[i]);
-                patch += curbyte;
-            }
-            plist_dict_set_item(p_component, location, plist_new_string(patch.c_str()));
-        }
-        plist_dict_set_item(p_patches, componentName, p_component);p_component = NULL;
-    }
-    plist_to_json(p_patches, &json, &jsonSize, 1);
-    tihmstar::writeFile(outfilePath, json, jsonSize);
+    const char *helpScreenPlugins = ra1nsn0w::getCmdHelpStringPlugins();
+    printf("%s",helpScreenPlugins);
 }
 
 MAINFUNCTION
 int main_r(int argc, const char * argv[]) {
     info("%s",VERSION_STRING);
     info("%s",img4tool::version());
+    info("%s",img3tool::version());
     info("%s",fragmentzip_version());
     info("%s",libipatcher::version());
     retassure(libipatcher::has64bitSupport(), "This tool needs libipatcher compiled with 64bit support!");

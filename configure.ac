@@ -91,6 +91,22 @@ AC_ARG_WITH([img1tool],
             [with_img1tool=no],
             [with_img1tool=yes])
 
+AC_ARG_WITH([ibootpatcher],
+            [AS_HELP_STRING([--without-ibootpatcher],
+            [build with ibootpatcher @<:@default=yes@:>@])],
+            [with_ibootpatcher=no],
+            [with_ibootpatcher=yes])
+
+AC_ARG_WITH([kernelpatcher],
+            [AS_HELP_STRING([--without-kernelpatcher],
+            [build with kernelpatcher @<:@default=yes@:>@])],
+            [with_kernelpatcher=no],
+            [with_kernelpatcher=yes])
+
+
+AM_CONDITIONAL(WITH_IBOOTPATCHER, test x$with_ibootpatcher == xyes)
+AM_CONDITIONAL(WITH_KERNELPATCHER, test x$with_kernelpatcher == xyes)
+
 
 if test "$debug_build" = true; then
   echo "*** Note: debug build requested ***"
@@ -134,6 +150,9 @@ AC_CHECK_FUNCS([memmem asprintf strtoul_l])
 AC_CONFIG_FILES([Makefile
                  include/Makefile
                  libra1nsn0w.pc
+                 tools/iBootPatcher/Makefile
+                 tools/kernelPatcher/Makefile
+                 tools/Makefile
                  ra1nsn0w/Makefile])
 AC_OUTPUT
 
@@ -144,7 +163,9 @@ Configuration for $PACKAGE-$VERSION:
   install prefix ..........: $prefix
   have openssl ............: $have_openssl
   have img1tool ...........: $have_img1tool
-  have plugin support .....: $plugin_support"
+  have plugin support .....: $plugin_support
+  with iBootPatcher .......: $with_ibootpatcher
+  with kernelPatcher ......: $with_kernelpatcher"
 
 echo "  compiler ................: ${CC}
 

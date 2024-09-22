@@ -46,10 +46,16 @@ namespace tihmstar {
         void parserCustomComponent(std::string customcomponent, launchConfig &cfg);
         void parserStringReplacePatch(std::string userpatch, launchConfig &cfg);
 
+#pragma mark helpscreen
+        const char *getCmdHelpString(void);
+        const char *getCmdHelpStringGeneral(void);
+        const char *getCmdHelpStringPlugins(void);
+        const char *getCmdHelpStringiBoot(void);
+        const char *getCmdHelpStringKernel(void);
+
 #pragma mark Plugins
         const char *getShortOpts(void);
         const struct option *getLongOpts(void);
-        const char *getCmdHelpString(void);
     
         void pluginRegister(const Plugin *plugin);
         void pluginUnregister(const Plugin *plugin);
