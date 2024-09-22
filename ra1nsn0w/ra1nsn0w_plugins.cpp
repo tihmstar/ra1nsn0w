@@ -197,28 +197,28 @@ static const char helpScreeniBootPatches[] =
 
 static const char helpScreenKernelPatches[] =
 "Kernel patches:\n" \
-"     --kernel-nopatch\t\t\t\tDon't modify kernel IM4P and send as it is (only rename to rkrn)\n" \
-"     --kpatch-add-read-bpr\t\t\tAllow reading BPR status by overwriting syscall 213\n" \
-"     --kpatch-allow-uid\t\t\t\tAllow using UID key for enc/dec from userspace\n" \
-"     --kpatch-always-get-task-allow\t\tMake all processes have get-task-allow entitlement\n" \
-"     --kpatch-apfs-skip-authenticated-root-hash Skip checking for authenticated root hash\n" \
-"     --kpatch-codesignature\t\t\tAllow unsigned code to run\n" \
-"     --kpatch-force-boot-ramdisk\t\tAlways imply 'rd=md0' even if that bootarg is not set\n" \
-"     --kpatch-force-nand-writeable\t\tMake NAND writeable even in ramdisk boot\n" \
-"     --kpatch-get-kernelbase-syscall\t\tSyscall 213 to return kernelbase\n" \
-"     --kpatch-hardcode-bootargs ARGS\t\tSpecify kernel bootargs (to be hardcoded inside the kernel)\n" \
-"     --kpatch-hardcode-boot-manifest-hash\tARGS Specify boot-manifest-hash (to be hardcoded inside the kernel)\n" \
-"     --kpatch-i_can_has_debugger\t\tPatch i_can_has_debugger = 1\n" \
-"     --kpatch-mount\t\t\t\tAllow mounting / as rw\n" \
-"     --kpatch-no-ramdisk-detect\t\t\tPatch detection of 'rd=md0' in kernel\n" \
-"     --kpatch-noemf\t\t\t\tDisable kernel EMF decryption\n" \
-"     --kpatch-nuke-sandbox\t\t\tCompletely nuke sanbox by nulling ALL mac_policy_ops fields\n" \
-"     --kpatch-root-from-sealed-apfs\t\tAllow rooting from sealed live APFS\n" \
-"     --kpatch-sandbox\t\t\t\tNeuter sanbox by nulling common mac_policy_ops fields\n" \
-"     --kpatch-setuid\t\t\t\tRe-add setuid functionality to kernel\n" \
-"     --kpatch-tfp0\t\t\t\tAllow calling task_for_pid(0)\n" \
-"     --kpatch-tfp-unrestrict\t\t\tAllow anyone calling task_for_pid()\n" \
-"     --sn0wsn0w\t\t\t\t\tApply generic kernelpatches\n" \
+"      --kernel-nopatch\t\t\t\tDon't modify kernel IM4P and send as it is (only rename to rkrn)\n" \
+"      --kpatch-add-read-bpr\t\t\tAllow reading BPR status by overwriting syscall 213\n" \
+"      --kpatch-allow-uid\t\t\tAllow using UID key for enc/dec from userspace\n" \
+"      --kpatch-always-get-task-allow\t\tMake all processes have get-task-allow entitlement\n" \
+"      --kpatch-apfs-skip-authenticated-root-hash Skip checking for authenticated root hash\n" \
+"      --kpatch-codesignature\t\t\tAllow unsigned code to run\n" \
+"      --kpatch-force-boot-ramdisk\t\tAlways imply 'rd=md0' even if that bootarg is not set\n" \
+"      --kpatch-force-nand-writeable\t\tMake NAND writeable even in ramdisk boot\n" \
+"      --kpatch-get-kernelbase-syscall\t\tSyscall 213 to return kernelbase\n" \
+"      --kpatch-hardcode-bootargs ARGS\t\tSpecify kernel bootargs (to be hardcoded inside the kernel)\n" \
+"      --kpatch-hardcode-boot-manifest-hash\tARGS Specify boot-manifest-hash (to be hardcoded inside the kernel)\n" \
+"      --kpatch-i_can_has_debugger\t\tPatch i_can_has_debugger = 1\n" \
+"      --kpatch-mount\t\t\t\tAllow mounting / as rw\n" \
+"      --kpatch-no-ramdisk-detect\t\tPatch detection of 'rd=md0' in kernel\n" \
+"      --kpatch-noemf\t\t\t\tDisable kernel EMF decryption\n" \
+"      --kpatch-nuke-sandbox\t\t\tCompletely nuke sanbox by nulling ALL mac_policy_ops fields\n" \
+"      --kpatch-root-from-sealed-apfs\t\tAllow rooting from sealed live APFS\n" \
+"      --kpatch-sandbox\t\t\t\tNeuter sanbox by nulling common mac_policy_ops fields\n" \
+"      --kpatch-setuid\t\t\t\tRe-add setuid functionality to kernel\n" \
+"      --kpatch-tfp0\t\t\t\tAllow calling task_for_pid(0)\n" \
+"      --kpatch-tfp-unrestrict\t\t\tAllow anyone calling task_for_pid()\n" \
+"      --sn0wsn0w\t\t\t\tApply generic kernelpatches\n" \
 "\n";
 
 
