@@ -15,6 +15,7 @@
 #include <iostream>
 #include <map>
 #include <vector>
+#include <memory>
 
 namespace tihmstar {
     namespace ra1nsn0w{
