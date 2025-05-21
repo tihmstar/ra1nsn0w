@@ -11,11 +11,11 @@
 
 #include <libgeneral/macros.h>
 #include <libgeneral/Utils.hpp>
-#include <libipatcher/libipatcher.hpp>
 #include <libpatchfinder/ibootpatchfinder/ibootpatchfinder64.hpp>
 #include <libpatchfinder/ibootpatchfinder/ibootpatchfinder32.hpp>
 #include <libpatchfinder/kernelpatchfinder/kernelpatchfinder64.hpp>
 #include <libpatchfinder/kernelpatchfinder/kernelpatchfinder32.hpp>
+#include <img3tool/img3tool.hpp>
 
 using namespace tihmstar;
 using namespace tihmstar::ra1nsn0w;
@@ -346,4 +346,55 @@ void ra1nsn0w::exportPatchesToJson(std::map<uint32_t,std::vector<patchfinder::pa
     }
     plist_to_json(p_patches, &json, &jsonSize, 1);
     tihmstar::writeFile(outfilePath, json, jsonSize);
+}
+
+img4tool::ASN1DERElement ra1nsn0w::patchIMG4(const void *buf, size_t bufSize, const char *ivstr, const char *keystr, std::string findstr, std::function<int(char *, size_t, void *)> patchfunc, void *param){
+    const char *usedCompression = NULL;
+    img4tool::ASN1DERElement hypervisor{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
+    
+    img4tool::ASN1DERElement im4p(buf,bufSize);
+    
+    img4tool::ASN1DERElement payload = getPayloadFromIM4P(im4p, ivstr, keystr, &usedCompression, &hypervisor);
+    
+    if (findstr.size()){
+        //check if decryption was successfull
+        retassure(memmem(payload.payload(), payload.payloadSize(), findstr.c_str() , findstr.size()), "Failed to find '%s'. Assuming decryption failed!",findstr.c_str());
+    }
+
+    assure(payload.ownsBuffer());
+    
+    //patch here
+    if (patchfunc) {
+        assure(!patchfunc((char*)payload.payload(), payload.payloadSize(), param));
+    }
+    
+    img4tool::ASN1DERElement patchedIM4P = img4tool::getEmptyIM4PContainer(im4p[1].getStringValue().c_str(), im4p[2].getStringValue().c_str());
+    
+    {
+#warning BUG WORKAROUND recompressing images with bvx2 makes them not boot for some reason
+        if (usedCompression && strcmp(usedCompression, "bvx2") == 0) {
+            warning("BUG WORKAROUND recompressing images with bvx2 makes them not boot for some reason. Skipping compression");
+            usedCompression = NULL;
+        }
+    }
+    
+    return img4tool::appendPayloadToIM4P(patchedIM4P, payload.payload(), payload.payloadSize(), usedCompression, hypervisor.payload(), hypervisor.payloadSize());
+}
+
+tihmstar::Mem ra1nsn0w::patchIMG3(const void *buf, size_t bufSize, const char *ivstr, const char *keystr, std::string findstr, std::function<int(char *, size_t, void*)> patchfunc, void *param){
+    const char *usedCompression = NULL;
+    
+    auto payload = img3tool::getPayloadFromIMG3(buf, bufSize, ivstr, keystr, &usedCompression);
+    
+    if (findstr.size()){
+        //check if decryption was successfull
+        retassure(memmem(payload.data(), payload.size(), findstr.c_str() , findstr.size()), "Failed to find '%s'. Assuming decryption failed!",findstr.c_str());
+    }
+    //patch here
+    if (patchfunc) {
+        assure(!patchfunc((char*)payload.data(), payload.size(), param));
+    }
+
+    auto newpayload = img3tool::replaceDATAinIMG3({buf,bufSize}, payload, usedCompression);
+    return img3tool::removeTagFromIMG3(newpayload.data(), newpayload.size(), 'KBAG');
 }

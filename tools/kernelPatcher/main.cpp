@@ -12,7 +12,7 @@
 
 #include <libgeneral/macros.h>
 #include <libgeneral/Utils.hpp>
-#include <libipatcher/libipatcher.hpp>
+#include <libfwkeyfetch/libfwkeyfetch.hpp>
 
 extern "C"{
 #include <plist/plist.h>
@@ -62,7 +62,6 @@ void cmd_help(){
 MAINFUNCTION
 int main_r(int argc, const char * argv[]) {
     info("%s",VERSION_STRING);
-    retassure(libipatcher::has64bitSupport(), "This tool needs libipatcher compiled with 64bit support!");
 #ifdef WITH_PLUGIN_SUPPORT
     info("Plugin support: YES");
 #else
@@ -74,7 +73,7 @@ int main_r(int argc, const char * argv[]) {
         .launchcfg = &cfg
     };
     
-    libipatcher::fw_key keys = {};
+    libfwkeyfetch::fw_key keys = {};
     
     int optindex = 0;
     int opt = 0;
@@ -175,24 +174,38 @@ int main_r(int argc, const char * argv[]) {
     info("Patching File...");
 
     {
-        std::pair<char *,size_t> patchedFile = {};
-        cleanup([&]{
-            safeFree(patchedFile.first); //free buffer
-        });
-        const void *outbuf = NULL;
+        tihmstar::Mem patchedFile;
 
         try {
             retassure(patchFuncKernel(inbuf.data(), inbuf.size(), &bcfg) == 0,"Failed to patch file, maybe not raw?");
             info("Successfully patched RAW kernel");
-            outbuf = inbuf.data();
+            patchedFile = inbuf;
         } catch (tihmstar::exception &e) {
 #ifdef DEBUG
             e.dump();
             debug("Failed to perform patch on raw file, retrying on packed file");
 #endif
-            patchedFile = libipatcher::patchCustom((char*)inbuf.data(), inbuf.size(), keys, (int(*)(char*,size_t,void*))patchFuncKernel, (void*)&bcfg);
-            info("Successfully patched packed kernel");
-            outbuf = patchedFile.first;
+            if (!patchedFile.size()){
+                try {
+                    auto pp = patchIMG4(inbuf.data(), inbuf.size(), keys.iv, keys.key, "Darwin", (int(*)(char*,size_t,void*))patchFuncKernel, (void*)&bcfg);
+                    patchedFile = {(const void*)pp.buf(), pp.size()};
+                } catch (tihmstar::exception &e) {
+                    error("Failed patching IMG4 files with error:\n%s",e.dumpStr().c_str());
+                }
+            }
+            if (!patchedFile.size()){
+                try {
+                    patchedFile = patchIMG3(inbuf.data(), inbuf.size(), keys.iv, keys.key, "Darwin", (int(*)(char*,size_t,void*))patchFuncKernel, (void*)&bcfg);
+                } catch (tihmstar::exception &e) {
+                    error("Failed patching IMG3 files with error:\n%s",e.dumpStr().c_str());
+                }
+            }
+            if (patchedFile.size()){
+                info("Successfully patched packed kernel");
+            }else{
+                error("Failed patching kernel");
+                return 5;
+            }
         }
 
         if (exportPatchesPath) {
@@ -201,7 +214,7 @@ int main_r(int argc, const char * argv[]) {
         }
         
         if (outputFile) {
-            writeFile(outputFile, outbuf, patchedFile.second);
+            writeFile(outputFile, patchedFile.data(), patchedFile.size());
             info("Wrote patched file to '%s'",outputFile);
         }else{
             warning("Not writing output to file, because no path was specified!");

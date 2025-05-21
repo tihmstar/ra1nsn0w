@@ -6,7 +6,7 @@ includedir=@includedir@
 Name: libra1nsn0w
 Description: Ra1nsn0w as a library
 
-Requires: @libgeneral_requires@ @libfragmentzip_requires@ @libimg4tool_requires@ @libimg3tool_requires@ @libipatcher_requires@ @libirecovery_requires@ @libpatchfinder_requires@ @libplist_requires@ @libtsschecker_requires@
+Requires: @libgeneral_requires@ @libfragmentzip_requires@ @libfwkeyfetch_requires@ @libimg4tool_requires@ @libimg3tool_requires@ @libirecovery_requires@ @libpatchfinder_requires@ @libplist_requires@ @libtsschecker_requires@
 Version: @VERSION_COMMIT_COUNT@
 Libs: -L${libdir} -lra1nsn0w
 Cflags: -I${includedir}

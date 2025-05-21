@@ -10,7 +10,7 @@
 #include "../include/ra1nsn0w/ra1nsn0w_plugins.hpp"
 
 #include <libgeneral/macros.h>
-#include <libipatcher/libipatcher.hpp>
+#include <libfwkeyfetch/libfwkeyfetch.hpp>
 #include <img3tool/img3tool.hpp>
 #include <tsschecker/tsschecker.hpp>
 #include <tsschecker/TssRequest.hpp>
@@ -71,6 +71,7 @@ static tihmstar::Mem downloadComponent(fragmentzip_t *fzinfo, std::string path, 
     }
 }
 
+#pragma mark public
 std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDevice &idev, std::string firmwareUrl, const launchConfig &cfg, img4tool::ASN1DERElement im4m, std::string variant){
     bootconfig bootcfg = {&cfg};
     fragmentzip_t *fzinfo = NULL;
@@ -89,9 +90,9 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     });
     plist_t buildidentity = NULL;
     plist_t pBuildnum = NULL;
-    libipatcher::fw_key iBSSKeys = {};
-    libipatcher::fw_key iBECKeys = {};
-    libipatcher::fw_key kernelKeys = {};
+    libfwkeyfetch::fw_key iBSSKeys = {};
+    libfwkeyfetch::fw_key iBECKeys = {};
+    libfwkeyfetch::fw_key kernelKeys = {};
     
     std::string ibssPath;
     std::string ibecPath;
@@ -304,26 +305,26 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     if (!cfg.noDecrypt && !cfg.isSRD) {
         info("Getting Firmware Keys...");
         try {
-            iBSSKeys = libipatcher::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, ibssPath, cpid, cfg.customKeysZipUrl);
+            iBSSKeys = libfwkeyfetch::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, ibssPath, cpid, cfg.customKeysZipUrl);
         } catch (tihmstar::exception &e) {
-            info("libipatcher::getFirmwareKeyForPath failed with error:\n%s",e.dumpStr().c_str());
+            info("libfwkeyfetch::getFirmwareKeyForPath failed with error:\n%s",e.dumpStr().c_str());
             if (idev.getDeviceCPID() != 0x8900){
                 reterror("Failed to get iBSS keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
             }
         }
         try {
-            iBECKeys = libipatcher::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, ibecPath, cpid, cfg.customKeysZipUrl);
+            iBECKeys = libfwkeyfetch::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, ibecPath, cpid, cfg.customKeysZipUrl);
         } catch (tihmstar::exception &e) {
-            info("libipatcher::getFirmwareKeyForPath failed with error:\n%s",e.dumpStr().c_str());
+            info("libfwkeyfetch::getFirmwareKeyForPath failed with error:\n%s",e.dumpStr().c_str());
             if (idev.getDeviceCPID() != 0x8900){
                 reterror("Failed to get iBEC keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
             }
         }
         if (!bootcfg.launchcfg->justiBoot) {
             try {
-                kernelKeys = libipatcher::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, kernelPath, cpid, cfg.customKeysZipUrl);
+                kernelKeys = libfwkeyfetch::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, kernelPath, cpid, cfg.customKeysZipUrl);
             } catch (tihmstar::exception &e) {
-                info("libipatcher::getFirmwareKeyForPath(\"%s\") failed with error:\n%s",kernelPath.c_str(),e.dumpStr().c_str());
+                info("libfwkeyfetch::getFirmwareKeyForPath(\"%s\") failed with error:\n%s",kernelPath.c_str(),e.dumpStr().c_str());
                 reterror("Failed to get firmware keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
             }
         }
@@ -368,14 +369,10 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     }else{
         info("Patching iBSS...");
         bootcfg.curPatchComponent = 'ssbi'; //ibss
-        auto ppiBSS = libipatcher::patchCustom((char*)ibssData.data(), ibssData.size(), iBSSKeys, (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
-        cleanup([&]{
-            safeFree(ppiBSS.first); //free buffer
-        });
         if (isIMG4) {
-            piBSS = {(const char *)ppiBSS.first,ppiBSS.second};
+            piBSS = patchIMG4(ibssData.data(), ibssData.size(), iBSSKeys.iv, iBSSKeys.key, "iBoot", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
         }else{
-            ibssData = {(const char *)ppiBSS.first,ppiBSS.second};
+            ibssData = patchIMG3(ibssData.data(), ibssData.size(), iBSSKeys.iv, iBSSKeys.key, "iBoot", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
         }
     }
     
@@ -398,14 +395,10 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
         }else{
             info("Patching iBEC...");
             bootcfg.curPatchComponent = 'cebi'; //ibec
-            auto ppiBEC = libipatcher::patchCustom((char*)ibecData.data(), ibecData.size(), iBECKeys, (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
-            cleanup([&]{
-                safeFree(ppiBEC.first); //free buffer
-            });
             if (isIMG4) {
-                piBEC = {ppiBEC.first,ppiBEC.second};
+                piBEC = patchIMG4(ibecData.data(), ibecData.size(), iBECKeys.iv, iBECKeys.key, "iBoot", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
             }else{
-                ibecData = {(const char *)ppiBEC.first,ppiBEC.second};
+                ibecData = patchIMG3(ibecData.data(), ibecData.size(), iBECKeys.iv, iBECKeys.key, "iBoot", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
             }
         }
     }
@@ -436,15 +429,10 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             }else{
                 info("Patching kernel...\n");
                 bootcfg.curPatchComponent = 'nrkr'; //rkrn (restore kernel)
-                auto ppKernel = libipatcher::patchCustom((char*)kernelData.data(), kernelData.size(), kernelKeys, (int(*)(char *, size_t, void*))patchFuncKernel, &bootcfg);
-                cleanup([&]{
-                    safeFree(ppKernel.first); //free buffer
-                });
-
                 if (isIMG4) {
-                    pkernel = {ppKernel.first,ppKernel.second};
+                    pkernel = patchIMG4(kernelData.data(), kernelData.size(), kernelKeys.iv, kernelKeys.key, "Darwin", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
                 }else{
-                    kernelData = {(const void*)ppKernel.first,ppKernel.second};
+                    kernelData = patchIMG3(kernelData.data(), kernelData.size(), kernelKeys.iv, kernelKeys.key, "Darwin", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
                 }
             }
             if (isIMG4) {
@@ -454,22 +442,17 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
         
         if (cfg.decrypt_devicetree) {
             info("Decrypting Devicetree");
-            libipatcher::fw_key devicetreeKeys = {};
+            libfwkeyfetch::fw_key devicetreeKeys = {};
             try {
-                devicetreeKeys = libipatcher::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, dtrePath, cpid, cfg.customKeysZipUrl);
+                devicetreeKeys = libfwkeyfetch::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, dtrePath, cpid, cfg.customKeysZipUrl);
             } catch (tihmstar::exception &e) {
-                info("libipatcher::getFirmwareKey(\"DeviceTree\") failed with error:\n%s",e.dumpStr().c_str());
+                info("libfwkeyfetch::getFirmwareKey(\"DeviceTree\") failed with error:\n%s",e.dumpStr().c_str());
                 reterror("Failed to get firmware keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
             }
             
             //run with empty patcher function just for decryption
-            auto ppdtre = libipatcher::patchCustom((char*)dtreData.data(), dtreData.size(), devicetreeKeys, [](char*, size_t, void*)->int{return 0;}, NULL);
-            try {
-                pdtre = {ppdtre.first,ppdtre.second, true}; //transfer ownership of buffer to ASN1DERElement
-                ppdtre = {};//if transfer succeeds, discard second copy of buffer
-            } catch (tihmstar::exception &e) {
-                safeFree(ppdtre.first); //if transfer fails, free buffer
-                throw;
+            if (isIMG4) {
+                pdtre = patchIMG4(dtreData.data(), dtreData.size(), devicetreeKeys.iv, devicetreeKeys.key, NULL, [](char*, size_t, void*)->int{return 0;}, NULL);
             }
         }else{
             if (isIMG4) {

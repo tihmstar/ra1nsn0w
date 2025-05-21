@@ -1,6 +1,6 @@
-AM_CFLAGS = -I$(top_srcdir)/include $(GLOBAL_CFLAGS) $(libfragmentzip_CFLAGS) $(libgeneral_CFLAGS) $(libimg4tool_CFLAGS) $(libimg3tool_CFLAGS) $(libipatcher_CFLAGS) $(libirecovery_CFLAGS) $(libpatchfinder_CFLAGS) $(libplist_CFLAGS) $(libtsschecker_CFLAGS)
+AM_CFLAGS = -I$(top_srcdir)/include $(GLOBAL_CFLAGS) $(libfragmentzip_CFLAGS) $(libfwkeyfetch_CFLAGS) $(libgeneral_CFLAGS) $(libimg4tool_CFLAGS) $(libimg3tool_CFLAGS) $(libirecovery_CFLAGS) $(libpatchfinder_CFLAGS) $(libplist_CFLAGS) $(libtsschecker_CFLAGS)
 AM_CXXFLAGS = $(AM_CFLAGS) $(GLOBAL_CXXFLAGS)
-AM_LDFLAGS = $(libfragmentzip_LIBS) $(libgeneral_LIBS) $(libimg4tool_LIBS) $(libimg3tool_LIBS) $(libipatcher_LIBS) $(libirecovery_LIBS) $(libpatchfinder_LIBS) $(libplist_LIBS) $(libtsschecker_LIBS)
+AM_LDFLAGS = $(libfragmentzip_LIBS) $(libfwkeyfetch_LIBS) $(libgeneral_LIBS) $(libimg4tool_LIBS) $(libimg3tool_LIBS) $(libirecovery_LIBS) $(libpatchfinder_LIBS) $(libplist_LIBS) $(libtsschecker_LIBS)
 
 
 if HAVE_OPENSSL

@@ -11,7 +11,7 @@
 
 #include <libgeneral/macros.h>
 #include <libgeneral/Utils.hpp>
-#include <libipatcher/libipatcher.hpp>
+#include <libfwkeyfetch/libfwkeyfetch.hpp>
 
 extern "C"{
 #include <plist/plist.h>
@@ -46,6 +46,7 @@ void cmd_help(){
            "\n"
            "Usage: iBootPatcher [OPTIONS] <input file> <output file>\n" \
            "Tool for patching iBoot\n" \
+           "      --32bit\t\t\t\t\tUse 32bit patchfinder instead of 64bit\n" \
            "      --iv\t\t\t\t\tIV  for decrypting iBoot\n"
            "      --key\t\t\t\t\tKey for decrypting iBoot\n"
            "\n"
@@ -61,7 +62,6 @@ void cmd_help(){
 MAINFUNCTION
 int main_r(int argc, const char * argv[]) {
     info("%s",VERSION_STRING);
-    retassure(libipatcher::has64bitSupport(), "This tool needs libipatcher compiled with 64bit support!");
 #ifdef WITH_PLUGIN_SUPPORT
     info("Plugin support: YES");
 #else
@@ -73,7 +73,7 @@ int main_r(int argc, const char * argv[]) {
         .launchcfg = &cfg
     };
     
-    libipatcher::fw_key keys = {};
+    libfwkeyfetch::fw_key keys = {};
     
     int optindex = 0;
     int opt = 0;
@@ -174,24 +174,38 @@ int main_r(int argc, const char * argv[]) {
     info("Patching File...");
 
     {
-        std::pair<char *,size_t> patchediBoot = {};
-        cleanup([&]{
-            safeFree(patchediBoot.first); //free buffer
-        });
-        const void *outbuf = NULL;
+        tihmstar::Mem patchediBoot;
 
         try {
             retassure(patchFunciBoot(iBoot.data(), iBoot.size(), &bcfg) == 0,"Failed to patch file, maybe not raw?");
             info("Successfully patched RAW iBoot");
-            outbuf = iBoot.data();
+            patchediBoot = iBoot;
         } catch (tihmstar::exception &e) {
 #ifdef DEBUG
             e.dump();
             debug("Failed to perform patch on raw file, retrying on packed file");
 #endif
-            patchediBoot = libipatcher::patchCustom((char*)iBoot.data(), iBoot.size(), keys, (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bcfg);
-            info("Successfully patched packed iBoot");
-            outbuf = patchediBoot.first;
+            if (!patchediBoot.size()){
+                try {
+                    auto pp = patchIMG4(iBoot.data(), iBoot.size(), keys.iv, keys.key, "iBoot", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bcfg);
+                    patchediBoot = {(const void*)pp.buf(), pp.size()};
+                } catch (tihmstar::exception &e) {
+                    error("Failed patching IMG4 files with error:\n%s",e.dumpStr().c_str());
+                }
+            }
+            if (!patchediBoot.size()){
+                try {
+                    patchediBoot = patchIMG3(iBoot.data(), iBoot.size(), keys.iv, keys.key, "iBoot", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bcfg);
+                } catch (tihmstar::exception &e) {
+                    error("Failed patching IMG3 files with error:\n%s",e.dumpStr().c_str());
+                }
+            }
+            if (patchediBoot.size()){
+                info("Successfully patched packed iBoot");
+            }else{
+                error("Failed patching iBoot");
+                return 5;
+            }
         }
 
         if (exportPatchesPath) {
@@ -200,7 +214,7 @@ int main_r(int argc, const char * argv[]) {
         }
         
         if (outputFile) {
-            writeFile(outputFile, outbuf, patchediBoot.second);
+            writeFile(outputFile, patchediBoot.data(), patchediBoot.size());
             info("Wrote patched file to '%s'",outputFile);
         }else{
             warning("Not writing output to file, because no path was specified!");

@@ -12,7 +12,7 @@
 
 #include <libgeneral/macros.h>
 #include <libgeneral/Utils.hpp>
-#include <libipatcher/libipatcher.hpp>
+#include <libfwkeyfetch/libfwkeyfetch.hpp>
 #include <img4tool/img4tool.hpp>
 #include <img3tool/img3tool.hpp>
 
@@ -95,8 +95,7 @@ int main_r(int argc, const char * argv[]) {
     info("%s",img4tool::version());
     info("%s",img3tool::version());
     info("%s",fragmentzip_version());
-    info("%s",libipatcher::version());
-    retassure(libipatcher::has64bitSupport(), "This tool needs libipatcher compiled with 64bit support!");
+    info("%s",libfwkeyfetch::version());
 #ifdef WITH_PLUGIN_SUPPORT
     info("Plugin support: YES");
 #else
@@ -114,7 +113,7 @@ int main_r(int argc, const char * argv[]) {
     int optindex = 0;
     int opt = 0;
     
-    libipatcher::pwnBundle bundle;
+    libfwkeyfetch::pwnBundle bundle;
     std::string ipswUrl;
 
     const char *exportPatchesPath = NULL;
@@ -260,9 +259,9 @@ int main_r(int argc, const char * argv[]) {
     }else {
         printf("No IPSW specified, getting URL to ipsw by buildid\n");
         try {
-            bundle = libipatcher::getPwnBundleForDevice(model, buildid, device.getDeviceCPID());
+            bundle = libfwkeyfetch::getPwnBundleForDevice(model, buildid, device.getDeviceCPID());
         } catch (tihmstar::exception &e) {
-            printf("libipatcher::getPwnBundleForDevice failed with error:\n");
+            printf("libfwkeyfetch::getPwnBundleForDevice failed with error:\n");
             e.dump();
             reterror("Failed to get firmware url. Please download ipsw and manually specify path");
         }
