@@ -187,7 +187,7 @@ int main_r(int argc, const char * argv[]) {
 #endif
             if (!patchedFile.size()){
                 try {
-                    auto pp = patchIMG4(inbuf.data(), inbuf.size(), keys.iv, keys.key, "Darwin", (int(*)(char*,size_t,void*))patchFuncKernel, (void*)&bcfg);
+                    auto pp = patchIMG4(inbuf.data(), inbuf.size(), keys.iv, keys.key, "Darwin", (int(*)(void*,size_t,void*))patchFuncKernel, (void*)&bcfg);
                     patchedFile = {(const void*)pp.buf(), pp.size()};
                 } catch (tihmstar::exception &e) {
                     error("Failed patching IMG4 files with error:\n%s",e.dumpStr().c_str());
@@ -195,7 +195,7 @@ int main_r(int argc, const char * argv[]) {
             }
             if (!patchedFile.size()){
                 try {
-                    patchedFile = patchIMG3(inbuf.data(), inbuf.size(), keys.iv, keys.key, "Darwin", (int(*)(char*,size_t,void*))patchFuncKernel, (void*)&bcfg);
+                    patchedFile = patchIMG3(inbuf.data(), inbuf.size(), keys.iv, keys.key, "Darwin", (int(*)(void*,size_t,void*))patchFuncKernel, (void*)&bcfg);
                 } catch (tihmstar::exception &e) {
                     error("Failed patching IMG3 files with error:\n%s",e.dumpStr().c_str());
                 }

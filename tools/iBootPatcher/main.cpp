@@ -187,7 +187,7 @@ int main_r(int argc, const char * argv[]) {
 #endif
             if (!patchediBoot.size()){
                 try {
-                    auto pp = patchIMG4(iBoot.data(), iBoot.size(), keys.iv, keys.key, "iBoot", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bcfg);
+                    auto pp = patchIMG4(iBoot.data(), iBoot.size(), keys.iv, keys.key, "iBoot", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bcfg);
                     patchediBoot = {(const void*)pp.buf(), pp.size()};
                 } catch (tihmstar::exception &e) {
                     error("Failed patching IMG4 files with error:\n%s",e.dumpStr().c_str());
@@ -195,7 +195,7 @@ int main_r(int argc, const char * argv[]) {
             }
             if (!patchediBoot.size()){
                 try {
-                    patchediBoot = patchIMG3(iBoot.data(), iBoot.size(), keys.iv, keys.key, "iBoot", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bcfg);
+                    patchediBoot = patchIMG3(iBoot.data(), iBoot.size(), keys.iv, keys.key, "iBoot", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bcfg);
                 } catch (tihmstar::exception &e) {
                     error("Failed patching IMG3 files with error:\n%s",e.dumpStr().c_str());
                 }

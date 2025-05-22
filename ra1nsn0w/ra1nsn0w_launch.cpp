@@ -370,9 +370,9 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
         info("Patching iBSS...");
         bootcfg.curPatchComponent = 'ssbi'; //ibss
         if (isIMG4) {
-            piBSS = patchIMG4(ibssData.data(), ibssData.size(), iBSSKeys.iv, iBSSKeys.key, "iBoot", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
+            piBSS = patchIMG4(ibssData.data(), ibssData.size(), iBSSKeys.iv, iBSSKeys.key, "iBoot", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
         }else{
-            ibssData = patchIMG3(ibssData.data(), ibssData.size(), iBSSKeys.iv, iBSSKeys.key, "iBoot", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
+            ibssData = patchIMG3(ibssData.data(), ibssData.size(), iBSSKeys.iv, iBSSKeys.key, "iBoot", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
         }
     }
     
@@ -396,9 +396,9 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             info("Patching iBEC...");
             bootcfg.curPatchComponent = 'cebi'; //ibec
             if (isIMG4) {
-                piBEC = patchIMG4(ibecData.data(), ibecData.size(), iBECKeys.iv, iBECKeys.key, "iBoot", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
+                piBEC = patchIMG4(ibecData.data(), ibecData.size(), iBECKeys.iv, iBECKeys.key, "iBoot", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
             }else{
-                ibecData = patchIMG3(ibecData.data(), ibecData.size(), iBECKeys.iv, iBECKeys.key, "iBoot", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
+                ibecData = patchIMG3(ibecData.data(), ibecData.size(), iBECKeys.iv, iBECKeys.key, "iBoot", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
             }
         }
     }
@@ -430,9 +430,9 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
                 info("Patching kernel...\n");
                 bootcfg.curPatchComponent = 'nrkr'; //rkrn (restore kernel)
                 if (isIMG4) {
-                    pkernel = patchIMG4(kernelData.data(), kernelData.size(), kernelKeys.iv, kernelKeys.key, "Darwin", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
+                    pkernel = patchIMG4(kernelData.data(), kernelData.size(), kernelKeys.iv, kernelKeys.key, "Darwin", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
                 }else{
-                    kernelData = patchIMG3(kernelData.data(), kernelData.size(), kernelKeys.iv, kernelKeys.key, "Darwin", (int(*)(char*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
+                    kernelData = patchIMG3(kernelData.data(), kernelData.size(), kernelKeys.iv, kernelKeys.key, "Darwin", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
                 }
             }
             if (isIMG4) {
@@ -452,7 +452,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             
             //run with empty patcher function just for decryption
             if (isIMG4) {
-                pdtre = patchIMG4(dtreData.data(), dtreData.size(), devicetreeKeys.iv, devicetreeKeys.key, NULL, [](char*, size_t, void*)->int{return 0;}, NULL);
+                pdtre = patchIMG4(dtreData.data(), dtreData.size(), devicetreeKeys.iv, devicetreeKeys.key, NULL, [](void*, size_t, void*)->int{return 0;}, NULL);
             }
         }else{
             if (isIMG4) {

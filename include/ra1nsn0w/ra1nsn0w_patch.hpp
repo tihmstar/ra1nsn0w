@@ -22,8 +22,8 @@ namespace tihmstar {
 
         void exportPatchesToJson(std::map<uint32_t,std::vector<patchfinder::patch>> patches, const char *outfilePath);
     
-        img4tool::ASN1DERElement patchIMG4(const void *buf, size_t bufSize, const char *ivstr, const char *keystr, std::string findstr, std::function<int(char *, size_t, void *)> patchfunc, void *param);
-        tihmstar::Mem patchIMG3(const void *buf, size_t bufSize, const char *ivstr, const char *keystr, std::string findstr, std::function<int(char *, size_t, void*)> patchfunc, void *param);
+        img4tool::ASN1DERElement patchIMG4(const void *buf, size_t bufSize, const char *ivstr, const char *keystr, std::string findstr, std::function<int(void *, size_t, void *)> patchfunc, void *param);
+        tihmstar::Mem patchIMG3(const void *buf, size_t bufSize, const char *ivstr, const char *keystr, std::string findstr, std::function<int(void *, size_t, void*)> patchfunc, void *param);
     };
 };
 

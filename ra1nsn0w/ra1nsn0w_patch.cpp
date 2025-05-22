@@ -348,7 +348,7 @@ void ra1nsn0w::exportPatchesToJson(std::map<uint32_t,std::vector<patchfinder::pa
     tihmstar::writeFile(outfilePath, json, jsonSize);
 }
 
-img4tool::ASN1DERElement ra1nsn0w::patchIMG4(const void *buf, size_t bufSize, const char *ivstr, const char *keystr, std::string findstr, std::function<int(char *, size_t, void *)> patchfunc, void *param){
+img4tool::ASN1DERElement ra1nsn0w::patchIMG4(const void *buf, size_t bufSize, const char *ivstr, const char *keystr, std::string findstr, std::function<int(void *, size_t, void *)> patchfunc, void *param){
     const char *usedCompression = NULL;
     img4tool::ASN1DERElement hypervisor{{img4tool::ASN1DERElement::TagNULL,img4tool::ASN1DERElement::Primitive,img4tool::ASN1DERElement::Universal},NULL,0};
     
@@ -365,7 +365,7 @@ img4tool::ASN1DERElement ra1nsn0w::patchIMG4(const void *buf, size_t bufSize, co
     
     //patch here
     if (patchfunc) {
-        assure(!patchfunc((char*)payload.payload(), payload.payloadSize(), param));
+        assure(!patchfunc((void*)payload.payload(), payload.payloadSize(), param));
     }
     
     img4tool::ASN1DERElement patchedIM4P = img4tool::getEmptyIM4PContainer(im4p[1].getStringValue().c_str(), im4p[2].getStringValue().c_str());
@@ -381,7 +381,7 @@ img4tool::ASN1DERElement ra1nsn0w::patchIMG4(const void *buf, size_t bufSize, co
     return img4tool::appendPayloadToIM4P(patchedIM4P, payload.payload(), payload.payloadSize(), usedCompression, hypervisor.payload(), hypervisor.payloadSize());
 }
 
-tihmstar::Mem ra1nsn0w::patchIMG3(const void *buf, size_t bufSize, const char *ivstr, const char *keystr, std::string findstr, std::function<int(char *, size_t, void*)> patchfunc, void *param){
+tihmstar::Mem ra1nsn0w::patchIMG3(const void *buf, size_t bufSize, const char *ivstr, const char *keystr, std::string findstr, std::function<int(void *, size_t, void*)> patchfunc, void *param){
     const char *usedCompression = NULL;
     
     auto payload = img3tool::getPayloadFromIMG3(buf, bufSize, ivstr, keystr, &usedCompression);
@@ -392,7 +392,7 @@ tihmstar::Mem ra1nsn0w::patchIMG3(const void *buf, size_t bufSize, const char *i
     }
     //patch here
     if (patchfunc) {
-        assure(!patchfunc((char*)payload.data(), payload.size(), param));
+        assure(!patchfunc(payload.data(), payload.size(), param));
     }
 
     auto newpayload = img3tool::replaceDATAinIMG3({buf,bufSize}, payload, usedCompression);
