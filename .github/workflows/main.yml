@@ -61,7 +61,7 @@ jobs:
           tag=$(get_latest_release ${dep});
           echo "Found tag: $tag"
           wget "https://github.com/${dep}/releases/download/$tag/$BUILDROOT.zip"
-          unzip -u "$BUILDROOT.zip"
+          unzip -o -u "$BUILDROOT.zip"
           rm "$BUILDROOT.zip"
         done
         echo "moving dependencies to /"
