@@ -13,6 +13,8 @@
 #include <img4tool/img4tool.hpp>
 #include <libgeneral/Mem.hpp>
 
+#include <functional>
+
 namespace tihmstar {
     namespace ra1nsn0w{
         int patchFunciBoot(void *iBootBuf, size_t iBootBufSize, bootconfig *bcfg);
