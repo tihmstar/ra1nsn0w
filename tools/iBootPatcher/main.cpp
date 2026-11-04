@@ -12,6 +12,8 @@
 #include <libgeneral/macros.h>
 #include <libgeneral/Utils.hpp>
 #include <libfwkeyfetch/libfwkeyfetch.hpp>
+#include <img3tool/img3tool.hpp>
+#include <img4tool/img4tool.hpp>
 
 extern "C"{
 #include <plist/plist.h>
@@ -81,7 +83,8 @@ int main_r(int argc, const char * argv[]) {
     const char *inputFile = NULL;
     const char *outputFile = NULL;
     const char *exportPatchesPath = NULL;
-    
+    bool hasManualKeys = false;
+
 #ifdef WITH_PLUGIN_SUPPORT
     if (const char *pluginPath = getenv("RA1NSN0W_PLUGIN_DIRECTORY")) {
         DIR* pdir = NULL;
@@ -123,8 +126,10 @@ int main_r(int argc, const char * argv[]) {
                 if (curopt == "export-patches") {
                     exportPatchesPath = optarg;
                 } else if (curopt == "iv") {
+                    hasManualKeys = true;
                     strncpy(keys.iv, optarg, sizeof(keys.iv));
                 } else if (curopt == "key") {
+                    hasManualKeys = true;
                     strncpy(keys.key, optarg, sizeof(keys.key));
                 } else if (curopt == "keys-zip") {
                     if (strncmp(optarg, "http", 4) != 0) {
@@ -171,6 +176,43 @@ int main_r(int argc, const char * argv[]) {
     info("Reading input file '%s'",inputFile);
 
     auto iBoot = tihmstar::readFile(inputFile);
+    
+    if (!hasManualKeys) {
+        tihmstar::Mem kbag;
+        for (int i=0; i<3; i++) {
+            if (!kbag.size()){
+                try {
+                    kbag = img4tool::getKBAG({iBoot.data(),iBoot.size()}, i);
+                } catch (...) {
+                    //
+                }
+            }
+            if (!kbag.size()){
+                try {
+                    kbag = img3tool::getKBAG(iBoot.data(), iBoot.size(), i);
+                } catch (...) {
+                    //
+                }
+            }
+        }
+        if (kbag.size()){
+            std::string kbagstring;
+            kbagstring.resize(kbag.size()*2+1);
+            size_t s = kbagstring.size();
+            tihmstar::bytesToHex(kbag.data(), kbag.size(), (char*)kbagstring.data(), &s);
+            info("Trying to fetch keys for kbag: %s",kbagstring.c_str());
+            try {
+                keys = libfwkeyfetch::getFirmwareKeyForKBAG(kbagstring);
+                info("Got IV: '%s' Key: '%s'",keys.iv, keys.key);
+            } catch (tihmstar::exception &e) {
+#ifdef DEBUG
+                e.dump();
+#endif
+                error("Failed to fetch keys");
+            }
+        }
+    }
+    
     info("Patching File...");
 
     {

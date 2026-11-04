@@ -80,6 +80,61 @@ void ra1nsn0w::parserCustomComponent(std::string customcomponent, launchConfig &
     cfg.customComponents[componentName] = std::move(data);
 }
 
+void ra1nsn0w::parserBytesReplacePatch(std::string userpatch, launchConfig &cfg){
+    printf("Parsing custom bytes replace patch \"%s\"\n",userpatch.c_str());
+    ssize_t colunpos = 0;
+    uint32_t component = 0;
+
+    retassure((colunpos = userpatch.find(":")) != std::string::npos, "Failed to find ':' What component is this patch for?");
+
+    std::string componentstr = userpatch.substr(0,colunpos);
+    std::string patchstr = userpatch.substr(colunpos+1);
+
+    retassure(componentstr.size() == 4, "component needs to be 4 bytes in size");
+    component = *(uint32_t*)componentstr.c_str();
+    
+    while (true) {
+        uint8_t *patchBytes = NULL;
+        cleanup([&]{
+            safeFree(patchBytes);
+        });
+        
+        ssize_t nextPatchPos = patchstr.find(";");
+        ssize_t commaPos = 0;
+        assure((commaPos = patchstr.find(",")) != std::string::npos); //if we have a patch, we need at least <addr> and <patch>
+
+        std::string pFind = patchstr.substr(0,commaPos);
+        std::string pReplace = patchstr.substr(commaPos+1,nextPatchPos);
+
+        retassure((pFind.size() & 1) == 0, "needle has bad size!");
+        retassure(pFind.size() == pReplace.size(), "replace size != needle size");
+
+        std::string bFind;
+        std::string bReplace;
+        bFind.resize(pFind.size()/2);
+        bReplace.resize(pReplace.size()/2);
+        
+        for (size_t i = 0; i<pFind.size(); i+=2) {
+            uint32_t byte = 0;
+            uint8_t *pBFind = (uint8_t *)bFind.data();
+            uint8_t *pBReplace = (uint8_t *)bReplace.data();
+
+            assure(sscanf(&pFind.c_str()[i], "%02x",&byte) == 1);
+            pBFind[i/2] = (uint8_t)byte;
+
+            assure(sscanf(&pReplace.c_str()[i], "%02x",&byte) == 1);
+            pBReplace[i/2] = (uint8_t)byte;
+        }
+
+        printf("%s: Parsed mem repalce patch='%s'->'%s'\n",componentstr.c_str(),pFind.c_str(),pReplace.c_str());
+        
+        cfg.replacePatches[component].push_back({bFind,bReplace});
+        
+        if (nextPatchPos == std::string::npos) break;
+        patchstr = patchstr.substr(nextPatchPos+1);
+    }
+}
+
 void ra1nsn0w::parserStringReplacePatch(std::string userpatch, launchConfig &cfg){
     printf("Parsing custom string replace patch \"%s\"\n",userpatch.c_str());
     ssize_t colunpos = 0;

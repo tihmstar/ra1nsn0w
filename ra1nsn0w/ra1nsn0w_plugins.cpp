@@ -62,6 +62,7 @@ static struct option defaultLongopts[] = {
     { "custom-component",               required_argument,      NULL,  0  },
     { "ibec",                           required_argument,      NULL,  0  },
     { "ibss",                           required_argument,      NULL,  0  },
+    { "mreplace",                       required_argument,      NULL,  0  },
     { "patch",                          required_argument,      NULL,  0  },
     { "sreplace",                       required_argument,      NULL,  0  },
 
@@ -79,8 +80,10 @@ static struct option defaultLongopts[] = {
     { "ipatch-disable-wxn-el3",         optional_argument,      NULL,  0  },
     { "ipatch-dtre-debug-enable",       optional_argument,      NULL,  0  },
     { "ipatch-no-force-dfu",            optional_argument,      NULL,  0  },
+    { "ipatch-honor-bootargs",          optional_argument,      NULL,  0  },
     { "ipatch-largepicture",            optional_argument,      NULL,  0  },
     { "ipatch-memcpy",                  optional_argument,      NULL,  0  },
+    { "ipatch-no-img3-dumplist",        optional_argument,      NULL,  0  },
     { "ipatch-nvram-unlock",            optional_argument,      NULL,  0  },
     { "ipatch-sep-force-local",         optional_argument,      NULL,  0  },
     { "ipatch-sep-force-raw",           optional_argument,      NULL,  0  },
@@ -101,6 +104,7 @@ static struct option defaultLongopts[] = {
     { "kpatch-allow-uid",               optional_argument,      NULL,  0  },
     { "kpatch-add-read-bpr",            optional_argument,      NULL,  0  },
     { "kpatch-no-ramdisk-detect",       optional_argument,      NULL,  0  },
+    { "kpatch-no-nonce-entanglement",   optional_argument,      NULL,  0  },
     { "kpatch-noemf",                   optional_argument,      NULL,  0  },
     { "kpatch-get-kernelbase-syscall",  optional_argument,      NULL,  0  },
     { "kpatch-tfp0",                    optional_argument,      NULL,  0  },
@@ -111,8 +115,15 @@ static struct option defaultLongopts[] = {
     { "kpatch-hardcode-boot-manifest-hash",required_argument,   NULL,  0  },
     { "kpatch-root-from-sealed-apfs",   optional_argument,      NULL,  0  },
     { "kpatch-apfs-skip-authenticated-root-hash",optional_argument,NULL,  0  },
+    { "kpatch-sep-allow-skip-boot-stage1",optional_argument,NULL,  0  },
+    { "kpatch-sep-is-obliterating",     optional_argument,      NULL,  0  },
+    { "kpatch-img3nor-checks",          optional_argument,      NULL,  0  },
     { "sn0wsn0w",                       no_argument,            NULL,  0  },
-    
+
+    /* txm patches: */
+    { "txm-nopatch",                    no_argument,            NULL,  0  },
+    { "txm-codesignature",              optional_argument,      NULL,  0  },
+
     /* Extra: */
     { "iv",                             required_argument,      NULL,  0  },
     { "key",                            required_argument,      NULL,  0  },
@@ -163,6 +174,7 @@ static const char helpScreenCustomizedBoot[] =
 "      --fpatch=<component>:<addr1>,<file>\tManually specify a patch to a component from file\n" \
 "      --ibec <path>\t\t\t\tManually specify a iBEC to boot\n" \
 "      --ibss <path>\t\t\t\tManually specify a iBSS to boot\n" \
+"      --mreplace=<component>:<findbytes,replacebytes>;... Patch replace bytes with other bytes\n" \
 "      --patch=<component>:<addr1>,<patch1>\tManually specify a patch to a component\n" \
 "      --send-all-components\t\t\tSend all components that iboot expects\n" \
 "      --sreplace=<component>:<findstr,replacestr>;... Patch replace string with other string\n" \
@@ -184,8 +196,10 @@ static const char helpScreeniBootPatches[] =
 "      --ipatch-disable-wxn-el3\t\t\tDisable WXN enforcement in EL3 iBoot\n" \
 "      --ipatch-dtre-debug-enable\t\tSet debug-enable in devicetree\n" \
 "      --ipatch-no-force-dfu\t\t\tSkip iBoot force_dfu checks\n" \
+"      --ipatch-honor-bootargs\t\t\tMake iBoot honor boot-args nvram val\n" \
 "      --ipatch-largepicture\t\t\tRemove setpicture's sizelimit of 0x100000 bytes\n" \
 "      --ipatch-memcpy\t\t\t\tReplace reboot with memcpy\n" \
+"      --ipatch-no-img3-dumplist\t\t\tDon't dump list of img3 bdev images in iBoot\n" \
 "      --ipatch-nvram-unlock\t\t\tAllows reading and writing all nvram vars\n" \
 "      --ipatch-sep-force-local\t\t\tForce booting sepi instead of rsep\n" \
 "      --ipatch-sep-force-raw\t\t\tForce loading raw rsep\n" \
@@ -211,6 +225,7 @@ static const char helpScreenKernelPatches[] =
 "      --kpatch-i_can_has_debugger\t\tPatch i_can_has_debugger = 1\n" \
 "      --kpatch-mount\t\t\t\tAllow mounting / as rw\n" \
 "      --kpatch-no-ramdisk-detect\t\tPatch detection of 'rd=md0' in kernel\n" \
+"      --kpatch-no-nonce-entanglement\t\tPatch 'nonce-entanglement' property to false\n" \
 "      --kpatch-noemf\t\t\t\tDisable kernel EMF decryption\n" \
 "      --kpatch-nuke-sandbox\t\t\tCompletely nuke sanbox by nulling ALL mac_policy_ops fields\n" \
 "      --kpatch-root-from-sealed-apfs\t\tAllow rooting from sealed live APFS\n" \
@@ -218,9 +233,17 @@ static const char helpScreenKernelPatches[] =
 "      --kpatch-setuid\t\t\t\tRe-add setuid functionality to kernel\n" \
 "      --kpatch-tfp0\t\t\t\tAllow calling task_for_pid(0)\n" \
 "      --kpatch-tfp-unrestrict\t\t\tAllow anyone calling task_for_pid()\n" \
+"      --kpatch-sep-allow-skip-boot-stage1\tAllow SEP to start booting from stage2\n" \
+"      --kpatch-kpatch-sep-is-obliterating\tMake SEP thing obliterate-inprogress NVRAM value is set\n" \
+"      --kpatch-img3nor-checks\t\t\tDisable img3 sigchecks in kernel when flashing NOR\n" \
 "      --sn0wsn0w\t\t\t\tApply generic kernelpatches\n" \
 "\n";
 
+static const char helpScreenTXMPatches[] =
+"TXM patches:\n" \
+"      --txm-nopatch\t\t\t\tDon't modify kernel IM4P and send as it is (only rename to rkrn)\n" \
+"      --txm-codesignature\t\t\tAllow unsigned code to run\n" \
+"\n";
 
 #ifndef HAVE_STRTOUL_L
 #define strtoul_l _strtoul_l
@@ -232,6 +255,19 @@ static const char helpScreenKernelPatches[] =
 
 static bool defaultparseArgument(launchConfig &cfg, std::string curopt, const char *optarg){
 #define parsePatchConfig(name,val) if (curopt == name) cfg.val = RA1NSN0W_PARSE_PATCH_CONFIG
+    //short opts
+    if (curopt == "boot-args") {
+        cfg.bootargs = optarg;
+    }else if (curopt == "trustcache") {
+        cfg.trustcache = readFile(optarg);
+    }else if (curopt == "kernel") {
+        cfg.kernelIm4p = readFile(optarg);
+    }else if (curopt == "ramdisk") {
+        cfg.ramdiskIm4p = readFile(optarg);
+    }else if (curopt == "sep") {
+        cfg.sepIm4p = readFile(optarg);
+    }else
+    
     //device selectors
     if (curopt == "32bit") {
         cfg.is32Bit = true;
@@ -263,6 +299,8 @@ static bool defaultparseArgument(launchConfig &cfg, std::string curopt, const ch
         cfg.iBECIm4p = readFile(optarg);
     }else if (curopt == "ibss") {
         cfg.iBSSIm4p = readFile(optarg);
+    }else if (curopt == "mreplace") {
+        parserBytesReplacePatch(optarg, cfg);
     }else if (curopt == "patch" || curopt == "fpatch") {
         parserUserPatch(optarg, cfg, curopt == "fpatch");
     }else if (curopt == "send-all-components") {
@@ -301,12 +339,14 @@ static bool defaultparseArgument(launchConfig &cfg, std::string curopt, const ch
     else parsePatchConfig("ipatch-dtre-debug-enable",iboot_dtre_debug_enable);
     else parsePatchConfig("ipatch-disable-wxn-el3",iboot_disable_wxn_el3);
     else parsePatchConfig("ipatch-no-force-dfu",iboot_no_force_dfu);
+    else parsePatchConfig("ipatch-honor-bootargs",iboot_honor_bootargs);
     else parsePatchConfig("ipatch-largepicture",iboot_largepicture);
     else parsePatchConfig("ipatch-memcpy",iboot_reboot_to_memcpy);
     else if (curopt == "ipatch-nvram-unlock"){
         cfg.nobootx = true;
         cfg.iboot_nvramUnlock = kPatchcfgYes;
     }
+    else parsePatchConfig("ipatch-no-img3-dumplist",iboot_no_img3_dumplist);
     else parsePatchConfig("ipatch-sep-force-local",iboot_sep_force_local);
     else parsePatchConfig("ipatch-sep-force-raw",iboot_sep_force_raw);
     else parsePatchConfig("ipatch-sep-skip-bpr",iboot_sep_skip_bpr);
@@ -335,26 +375,36 @@ static bool defaultparseArgument(launchConfig &cfg, std::string curopt, const ch
             error("Failed reading hexbytes!");
             return -1;
         }
-        cfg.kernelHardcoderoot_ticket_hash.resize(len/2);
+        cfg.kernelHardcode_boot_hash.resize(len/2);
         for (size_t i = 0; i<len; i+=2) {
             uint32_t byte = 0;
             assure(sscanf(&optarg[i], "%02x",&byte) == 1);
-            cfg.kernelHardcoderoot_ticket_hash.data()[i/2] = (uint8_t)byte;
+            cfg.kernelHardcode_boot_hash.data()[i/2] = (uint8_t)byte;
         }
     }
     else parsePatchConfig("kpatch-i_can_has_debugger",kpatch_i_can_has_debugger);
     else parsePatchConfig("kpatch-mount",kpatch_mount);
     else parsePatchConfig("kpatch-no-ramdisk-detect",kpatch_no_ramdisk_detect);
+    else parsePatchConfig("kpatch-no-nonce-entanglement",kpatch_no_nonce_entanglement);    
     else parsePatchConfig("kpatch-noemf",kpatch_noemf);
     else parsePatchConfig("kpatch-nuke-sandbox",kpatch_nuke_sandbox);
     else parsePatchConfig("kpatch-root-from-sealed-apfs",kpatch_root_from_sealed_apfs);
     else parsePatchConfig("kpatch-sandbox",kpatch_sandbox);
+    else parsePatchConfig("kpatch-sep-allow-skip-boot-stage1",kpatch_allow_sep_boot_skip_stage1);
+    else parsePatchConfig("kpatch-kpatch-sep-is-obliterating",kpatch_sep_is_obliterating);
+    else parsePatchConfig("kpatch-img3nor-checks",kpatch_img3nor_checks);
     else parsePatchConfig("kpatch-setuid",kpatch_setuid);
     else parsePatchConfig("kpatch-tfp0",kpatch_tfp0);
     else parsePatchConfig("kpatch-tfp-unrestrict",kpatch_tfp_unrestrict);
     else if (curopt == "sn0wsn0w") {
         cfg.doJailbreakPatches = true;
-    }else{
+    }
+    //TXM patches
+    else if (curopt == "txm-nopatch") {
+        cfg.txm_nopatch = true;
+    }
+    else parsePatchConfig("txm-codesignature",txm_codesig);
+    else{
         return false;
     }
     
@@ -429,6 +479,10 @@ const char *ra1nsn0w::getCmdHelpStringKernel(void){
     return helpScreenKernelPatches;
 }
 
+const char *ra1nsn0w::getCmdHelpStringTXM(void){
+    return helpScreenTXMPatches;
+}
+
 const char *ra1nsn0w::getShortOpts(void){
     return "ht:B:e:wv:k:r:s:c:l:b:V:";
 }
@@ -451,14 +505,20 @@ bool ra1nsn0w::parseArgument(launchConfig &cfg, std::string curopt, const char *
 }
 
 #pragma mark plugins
-void ra1nsn0w::pluginRegister(const Plugin *plugin){
+bool ra1nsn0w::pluginRegister(const Plugin *plugin){
 #ifdef WITH_PLUGIN_SUPPORT
+    if (plugin->apiVersion != RA1NSN0W_PLUGIN_API_VERSION){
+        error("ra1nsn0w::pluginRegister mismatching API version. Got %d but needs %d",plugin->apiVersion,RA1NSN0W_PLUGIN_API_VERSION);
+        return false;
+    }
     gPlugins.insert(plugin);
     updateCmdHelperStringPlugins();
     updateLongopts();
+    return true;
 #else
     error("ra1nsn0w::pluginRegister called, but ra1nsn0w was built without plugin support!");
 #endif //WITH_PLUGIN_SUPPORT
+    return false;
 }
 
 void ra1nsn0w::pluginUnregister(const Plugin *plugin){

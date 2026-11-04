@@ -71,7 +71,7 @@ void tihmstar::ra1nsn0w::irecv_event_cb(const irecv_device_event_t* event, void 
             debug("IRECV_DEVICE_ADD: set ecid to %llu\n",idev->_ecid);
         }
 
-        if ((idev->_ecid && event->device_info->ecid == idev->_ecid) || event->mode == IRECV_K_WTF_MODE) {
+        if ((idev->_ecid && event->device_info->ecid == idev->_ecid) || event->mode == IRECV_K_WTF_MODE || (idev->_ecid == 0 && event->device_info->cpid == 0x8900)) {
             idev->_eventLock.lock();
             switch (event->mode) {
                 case IRECV_K_WTF_MODE:
@@ -125,58 +125,7 @@ iOSDevice::iOSDevice(uint64_t ecid, bool waitForDevice, std::string dryRunDevice
         return;
     }
 
-    retassure(!irecv_device_event_subscribe(&_irecv_e_ctx, irecv_event_cb, this),"Failed to subscribe to libirecovery device events");
-    std::unique_lock<std::mutex> elock(_eventLock);
-
-    // check which mode the device is currently in so we know where to start
-    info("Waiting for device...\n");
-    if (waitForDevice) {
-        _eventNotifier.wait(elock, [&]{return _mode != iOSDevice::unknown;});
-    }else{
-        _eventNotifier.wait_for(elock, std::chrono::seconds(3), [&]{return _mode != iOSDevice::unknown;});
-    }
-    if (_mode == iOSDevice::unknown) {
-        //do manual listing in case we missed an event
-        struct irecv_device_info dinfo = {};
-        int mode = 0;
-        {
-            //try to find an ecid
-            irecv_client_t cli = {};
-            cleanup([&]{
-                safeFreeCustom(cli, irecv_close);
-            });
-            if (!irecv_open_with_ecid(&cli, 0)){
-                //we could successfully open a device!
-                if (const struct irecv_device_info* info = irecv_get_device_info(cli)){
-                    //and we could get some info
-                    dinfo = *info;
-                    irecv_get_mode(cli, &mode);
-                }
-            }
-        }
-        
-        if (dinfo.ecid) {
-            //we have an ecid, which means there is a device! now manually construct an event
-            irecv_device_event_t manualEvent = {
-                .type = IRECV_DEVICE_ADD,
-                .mode = (enum irecv_mode)mode,
-                .device_info = &dinfo
-            };
-            {
-                elock.unlock();
-                cleanup([&]{
-                    elock.lock();
-                });
-                irecv_event_cb(&manualEvent, this);
-            }
-        }
-    }
-    retassure(_mode != iOSDevice::unknown ,"ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
-    retassure(_mode == iOSDevice::dfu || _mode == iOSDevice::recovery || _mode == iOSDevice::wtf, "ERROR: Device 0x%016llx is not in DFU or recovery mode\n",_ecid);
-    elock.unlock();
-    
-    retassure(!irecv_open_with_ecid(&_cli, _ecid), "Failed to open connection to device");
-    info("Found device: %s\n",getDeviceProductType().c_str());
+    claim(waitForDevice);
 }
 
 iOSDevice::~iOSDevice(){
@@ -193,6 +142,8 @@ std::string iOSDevice::getDeviceProductType(){
         info("[DRY RUN] product type %s",_dryRunDeviceProductType.c_str());
         return _dryRunDeviceProductType;
     }
+    if (_mode == iOSDevice::wtf) return "[WTF Device]";
+
     irecv_device_t device = NULL;
     assure(!irecv_devices_get_device_by_client(_cli,&device));
     return device->product_type;
@@ -203,6 +154,7 @@ std::string iOSDevice::getDeviceHardwareModel(){
         info("[DRY RUN] hardware model %s",_dryRunDeviceHardwareModel.c_str());
         return _dryRunDeviceHardwareModel;
     }
+    if (_mode == iOSDevice::wtf) return "[WTF Device]";
     irecv_device_t device = NULL;
     assure(!irecv_devices_get_device_by_client(_cli,&device));
     return device->hardware_model;
@@ -279,6 +231,69 @@ void iOSDevice::setCheckpoint(){
     _didDisconnect = false;
 }
 
+void iOSDevice::unclaim(){
+    safeFreeCustom(_irecv_e_ctx, irecv_device_event_unsubscribe);
+    safeFreeCustom(_cli, irecv_close);
+    _didDisconnect = true;
+    _mode = unknown;
+}
+
+void iOSDevice::claim(bool waitForDevice){
+    unclaim();
+    retassure(!irecv_device_event_subscribe(&_irecv_e_ctx, irecv_event_cb, this),"Failed to subscribe to libirecovery device events");
+    std::unique_lock<std::mutex> elock(_eventLock);
+
+    // check which mode the device is currently in so we know where to start
+    info("Waiting for device...\n");
+    if (waitForDevice) {
+        _eventNotifier.wait(elock, [&]{return _mode != iOSDevice::unknown;});
+    }else{
+        _eventNotifier.wait_for(elock, std::chrono::seconds(3), [&]{return _mode != iOSDevice::unknown;});
+    }
+    if (_mode == iOSDevice::unknown) {
+        //do manual listing in case we missed an event
+        struct irecv_device_info dinfo = {};
+        int mode = 0;
+        {
+            //try to find an ecid
+            irecv_client_t cli = {};
+            cleanup([&]{
+                safeFreeCustom(cli, irecv_close);
+            });
+            if (!irecv_open_with_ecid(&cli, 0)){
+                //we could successfully open a device!
+                if (const struct irecv_device_info* info = irecv_get_device_info(cli)){
+                    //and we could get some info
+                    dinfo = *info;
+                    irecv_get_mode(cli, &mode);
+                }
+            }
+        }
+        
+        if (dinfo.ecid) {
+            //we have an ecid, which means there is a device! now manually construct an event
+            irecv_device_event_t manualEvent = {
+                .type = IRECV_DEVICE_ADD,
+                .mode = (enum irecv_mode)mode,
+                .device_info = &dinfo
+            };
+            {
+                elock.unlock();
+                cleanup([&]{
+                    elock.lock();
+                });
+                irecv_event_cb(&manualEvent, this);
+            }
+        }
+    }
+    retassure(_mode != iOSDevice::unknown ,"ERROR: Unable to discover device mode. Please make sure a device is attached.\n");
+    retassure(_mode == iOSDevice::dfu || _mode == iOSDevice::recovery || _mode == iOSDevice::wtf, "ERROR: Device 0x%016llx is not in DFU or recovery mode\n",_ecid);
+    elock.unlock();
+    
+    retassure(!irecv_open_with_ecid(&_cli, _ecid), "Failed to open connection to device");
+    info("Found device: %s\n",getDeviceProductType().c_str());
+}
+
 void iOSDevice::waitForReconnect(uint32_t timeoutMS){
     if (_dryRunDeviceHardwareModel.size()) {
         info("[DRY RUN] reconnecting");
@@ -353,17 +368,25 @@ std::string iOSDevice::getEnv(std::string env){
     cleanup([&]{
         safeFree(val);
     });
-    retassure(_mode == iOSDevice::recovery, "sendCommand called, but device is not in recovery mode");
+    retassure(_mode == iOSDevice::recovery, "getenv called, but device is not in recovery mode");
     retassure(!irecv_getenv(_cli, env.c_str(),&val), "failed to getenv");
     return val;
 }
 
+void iOSDevice::setEnv(std::string env, std::string val){
+    if (_dryRunDeviceHardwareModel.size()) {
+        info("[DRY RUN] 'setenv %s %s'",env.c_str(),val.c_str());
+        return;
+    }
+    retassure(_mode == iOSDevice::recovery, "setenv called, but device is not in recovery mode");
+    retassure(!irecv_setenv(_cli, env.c_str(), val.c_str()), "failed to setenv");
+}
 
-int iOSDevice::usbReceive(char *buffer, size_t size){
-    int r;
-    int bytes;
+size_t iOSDevice::usbReceive(char *buffer, size_t size){
+    int r = 0;
+    int bytes = 0;
     irecv_usb_set_interface(_cli, 1, 1);
-    r = irecv_usb_bulk_transfer(_cli, 0x81, (unsigned char*) buffer, (int)size, &bytes, 5000);
+    assure((r = irecv_usb_bulk_transfer(_cli, 0x81, (unsigned char*) buffer, size, &bytes, 5000)) >=0);
     irecv_usb_set_interface(_cli, 0, 0);
     return bytes;
 }

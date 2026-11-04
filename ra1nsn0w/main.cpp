@@ -29,11 +29,6 @@ extern "C"{
 #include <sys/stat.h>
 #include <getopt.h>
 
-#ifdef WITH_PLUGIN_SUPPORT
-#   include <dirent.h>
-#   include <dlfcn.h>
-#endif //WITH_PLUGIN_SUPPORT
-
 #ifndef HAVE_STRTOUL_L
 #define strtoul_l _strtoul_l
 #endif
@@ -124,29 +119,7 @@ int main_r(int argc, const char * argv[]) {
     uint64_t ecid = 0;
     bool waitForDevice = false;
     
-#ifdef WITH_PLUGIN_SUPPORT
-    if (const char *pluginPath = getenv("RA1NSN0W_PLUGIN_DIRECTORY")) {
-        DIR* pdir = NULL;
-        cleanup([&]{
-            safeFreeCustom(pdir, closedir);
-        });
-        pdir = opendir(pluginPath);
-        std::string ppath = pluginPath;
-        if (ppath.back() != '/') ppath += '/';
-        if (!pdir){
-            error("Failed to opendir '%s'",pluginPath);
-        }else{
-            while (struct dirent *file = readdir(pdir)) {
-                if (!strncmp (file->d_name, ".", 1)) continue;
-                if (file->d_type != DT_REG) continue;
-                std::string fullpath = ppath + file->d_name;
-                void *handle = dlopen(fullpath.c_str(), RTLD_NOW);
-                if (handle) info("Loaded plugin '%s'",fullpath.c_str());
-                else error("Trying to loading plugin '%s' failed with reason '%s'",fullpath.c_str(),dlerror());
-            }
-        }
-    }
-#endif //WITH_PLUGIN_SUPPORT
+    ra1nsn0w::loadPlugins();
 
     if (argc == 1){
         cmd_help();
@@ -252,7 +225,7 @@ int main_r(int argc, const char * argv[]) {
     
     if (ipswUrl.size()){
         if (ipswUrl.substr(0,4) != "http") {
-            retassure(!access(ipswUrl.c_str(), F_OK),"ERROR: Firmware file %s does not exist.\n", ipswUrl.c_str());
+            retassure(fileExists(ipswUrl.c_str()),"ERROR: Firmware file %s does not exist.\n", ipswUrl.c_str());
             printf("Got local ipsw path=%s\n",ipswUrl.c_str());
             ipswUrl.insert(0, "file://");
         }

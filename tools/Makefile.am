@@ -1,1 +1,1 @@
-SUBDIRS=iBootPatcher kernelPatcher
+SUBDIRS=iBootPatcher kernelPatcher txmPatcher

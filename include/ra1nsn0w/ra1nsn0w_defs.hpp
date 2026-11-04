@@ -16,6 +16,7 @@
 #include <map>
 #include <vector>
 #include <memory>
+#include <functional>
 
 namespace tihmstar {
     namespace ra1nsn0w{
@@ -43,6 +44,7 @@ namespace tihmstar {
             bool justiBoot = false;
             bool iboot_nopatch = false;
             bool kernel_nopatch = false;
+            bool txm_nopatch = false;
             bool decrypt_devicetree = false;
             bool nobootx = false;
             bool no_iboot_sigpatch = false;
@@ -67,12 +69,14 @@ namespace tihmstar {
             Patchcfg iboot_sep_skip_bpr = kPatchcfgNo;
             Patchcfg iboot_reboot_to_memcpy = kPatchcfgNo;
             Patchcfg iboot_largepicture = kPatchcfgNo;
+            Patchcfg iboot_no_img3_dumplist = kPatchcfgNo;
             Patchcfg iboot_sep_force_local = kPatchcfgNo;
             Patchcfg iboot_sep_force_raw = kPatchcfgNo;
             Patchcfg iboot_atv4k_enable_uart = kPatchcfgNo;
             Patchcfg iboot_always_production = kPatchcfgNo;
             Patchcfg iboot_always_sepfw_booted = kPatchcfgNo;
             Patchcfg iboot_no_force_dfu = kPatchcfgNo;
+            Patchcfg iboot_honor_bootargs = kPatchcfgNo;
             Patchcfg iboot_dtre_debug_enable = kPatchcfgNo;
 
             Patchcfg kpatch_codesig = kPatchcfgNo;
@@ -85,6 +89,7 @@ namespace tihmstar {
             Patchcfg kpatch_allow_uid = kPatchcfgNo;
             Patchcfg kpatch_add_read_bpr = kPatchcfgNo;
             Patchcfg kpatch_no_ramdisk_detect = kPatchcfgNo;
+            Patchcfg kpatch_no_nonce_entanglement = kPatchcfgNo;
             Patchcfg kpatch_noemf = kPatchcfgNo;
             Patchcfg kpatch_get_kernelbase_syscall = kPatchcfgNo;
             Patchcfg kpatch_tfp0 = kPatchcfgNo;
@@ -93,20 +98,30 @@ namespace tihmstar {
             Patchcfg kpatch_force_boot_ramdisk = kPatchcfgNo;
             Patchcfg kpatch_root_from_sealed_apfs = kPatchcfgNo;
             Patchcfg kpatch_apfs_skip_authenticated_root = kPatchcfgNo;
+            Patchcfg kpatch_allow_sep_boot_skip_stage1 = kPatchcfgNo;
+            Patchcfg kpatch_sep_is_obliterating = kPatchcfgNo;
+            Patchcfg kpatch_img3nor_checks = kPatchcfgNo;
+            Patchcfg kpatch_raw_sep_romcmd = kPatchcfgNo;
             
+            Patchcfg txm_codesig = kPatchcfgNo;
+
             tihmstar::Mem root_ticket_hash;
             tihmstar::Mem kernelHardcoderoot_ticket_hash;
+            tihmstar::Mem boot_manifest_hash;
+            tihmstar::Mem kernelHardcode_boot_hash;
             std::vector<std::pair<std::string, uint64_t>> cmdhandler;
             std::string cmdcall;
             std::string bootargs;
             std::string kernelHardcodeBootargs;
 
             tihmstar::Mem kernelIm4p;
+            tihmstar::Mem txmIm4p;
             tihmstar::Mem ramdiskIm4p;
             tihmstar::Mem sepIm4p;
             tihmstar::Mem ra1nra1n;
             tihmstar::Mem trustcache;
             tihmstar::Mem bootlogoIm4p;
+            tihmstar::Mem dtreIm4p;
             tihmstar::Mem iBSSIm4p;
             tihmstar::Mem iBECIm4p;
             bool ramdiskIsRawDMG = false;
@@ -116,6 +131,8 @@ namespace tihmstar {
             std::map<uint32_t,std::vector<patchfinder::patch>> userPatches; // <component,patches>
             std::map<uint32_t,std::vector<std::pair<std::string,std::string>>> replacePatches; // <find str, replace str>
             std::map<std::string,tihmstar::Mem> customComponents; // <componentName, data>
+            
+            std::function<void(void)> devicePrepareCB;
         };
     
         struct bootconfig{

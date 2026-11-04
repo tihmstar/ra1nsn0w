@@ -15,7 +15,50 @@
 #include <libpatchfinder/ibootpatchfinder/ibootpatchfinder32.hpp>
 #include <libpatchfinder/kernelpatchfinder/kernelpatchfinder64.hpp>
 #include <libpatchfinder/kernelpatchfinder/kernelpatchfinder32.hpp>
+#include <libpatchfinder/txmpatchfinder/txmpatchfinder64.hpp>
 #include <img3tool/img3tool.hpp>
+
+#include <string.h>
+
+#ifndef HAVE_MEMMEM
+static void *memmem(const void *haystack_start, size_t haystack_len, const void *needle_start, size_t needle_len){
+    const unsigned char *haystack = (const unsigned char *)haystack_start;
+    const unsigned char *needle = (const unsigned char *)needle_start;
+    const unsigned char *h = NULL;
+    const unsigned char *n = NULL;
+    size_t x = needle_len;
+
+    /* The first occurrence of the empty string is deemed to occur at
+    the beginning of the string.  */
+    if (needle_len == 0) {
+        return (void *)haystack_start;
+    }
+
+    /* Sanity check, otherwise the loop might search through the whole
+        memory.  */
+    if (haystack_len < needle_len) {
+        return NULL;
+    }
+
+    for (; haystack_len--; haystack++) {
+        x = needle_len;
+        n = needle;
+        h = haystack;
+
+        if (haystack_len < needle_len)
+            break;
+
+        if ((haystack[0] != needle[0]) || (haystack[needle_len-1] != needle[needle_len-1]))
+            continue;
+
+        for (; x--; h++, n++) {
+            if (*h != *n) break;
+            if (x == 0) return (void *)haystack;
+        }
+    }
+    return NULL;
+}
+#endif
 
 using namespace tihmstar;
 using namespace tihmstar::ra1nsn0w;
@@ -28,6 +71,25 @@ using namespace tihmstar::ra1nsn0w;
                             info("Kernel: Adding " funcstring " patch...\n"); \
                             try { \
                                 auto patch = kpf->funcname(); \
+                                patches.insert(patches.end(), patch.begin(), patch.end()); \
+                            } catch (tihmstar::exception &e) { \
+                                if ((cfg->cfgname & kPatchcfgMayFail) \
+                                    || (cfg->is32Bit && (cfg->cfgname & kPatchcfg32MayFail)) \
+                                    || (!cfg->is32Bit && (cfg->cfgname & kPatchcfg64MayFail)) )\
+                                        warning("Patch " funcstring " failed with error=%d (%s) but was marked as optional. Proceeding without...",e.code(),e.what()); \
+                                else throw; \
+                            } \
+                        }\
+                    }
+
+#define addTXMpatch(cfgname, funcname, funcstring) \
+                    if (cfg->cfgname) { \
+                        if ((cfg->cfgname & (kPatchcfgYes | kPatchcfgMayFail)) \
+                            || (cfg->is32Bit && (cfg->cfgname & (kPatchcfg32Yes | kPatchcfg32MayFail))) \
+                            || (!cfg->is32Bit && (cfg->cfgname & (kPatchcfg64Yes | kPatchcfg64MayFail))) ){\
+                            info("TXM: Adding " funcstring " patch...\n"); \
+                            try { \
+                                auto patch = txmpf->funcname(); \
                                 patches.insert(patches.end(), patch.begin(), patch.end()); \
                             } catch (tihmstar::exception &e) { \
                                 if ((cfg->cfgname & kPatchcfgMayFail) \
@@ -59,6 +121,65 @@ using namespace tihmstar::ra1nsn0w;
                         }\
                     }
 
+int ra1nsn0w::patchFuncDevicetree(void *dtreBuf, size_t dtreBufSize, bootconfig *bcfg){
+    const launchConfig *cfg = bcfg->launchcfg;
+    std::vector<patchfinder::patch> patches;
+  
+    if (cfg->replacePatches.find(bcfg->curPatchComponent) != cfg->replacePatches.end()) {
+        auto replacePatches = cfg->replacePatches.at(bcfg->curPatchComponent);
+        for (auto &r : replacePatches) {
+            retassure(r.first.size() == r.second.size(), "patch and replace are different size!");
+            uint8_t *tgt = (uint8_t*)dtreBuf;
+            size_t tgtSize = dtreBufSize;
+            while (tgt){
+                uint8_t *found = (uint8_t*)memmem(tgt, tgtSize, r.first.data(), r.first.size());
+                if (!found) break;
+                patches.push_back({
+                    (uint64_t)(found - (uint8_t*)dtreBuf),
+                    r.second.data(),
+                    r.second.size()
+                });
+                found++;
+                tgtSize -= found-tgt;
+                tgt = found;
+            }
+        }
+        info("Inserted replacepatches for current component!");
+    }
+
+    try {
+        auto userpatches = cfg->userPatches.at(bcfg->curPatchComponent); //check if we have custom user patches for this component
+        patches.insert(patches.end(), userpatches.begin(), userpatches.end());
+        info("Inserted custom userpatches for current component!");
+    } catch (...) {
+        //
+    }
+    
+    for (auto p : bcfg->launchcfg->activePlugins) {
+        auto ppatches = p.second->patcher(bcfg->curPatchComponent, dtreBuf, dtreBufSize);
+        patches.insert(patches.end(), ppatches.begin(), ppatches.end());
+    }
+    
+    /* ---------- Applying collected patches ---------- */
+    bcfg->appliedPatches[bcfg->curPatchComponent] = patches;
+    info("Devicetree: Applying patches...");
+    for (auto p : patches) {
+        uint64_t off = (uint64_t)(p._location);
+#ifdef DEBUG
+        printf("Devicetree: Applying patch=%p : ",(void*)p._location);
+        for (int i=0; i<p.getPatchSize(); i++) {
+            printf("%02x",((uint8_t*)p.getPatch())[i]);
+        }
+        printf("\n");
+#endif
+        uint8_t *pbuf = (uint8_t*)dtreBuf;
+        retassure(off+p.getPatchSize()<dtreBufSize, "devicetree patch is OOB");
+        memcpy(&pbuf[off], p.getPatch(), p.getPatchSize());
+    }
+    info("Devicetree: Patches applied!");
+    return 0;
+}
+
 int ra1nsn0w::patchFunciBoot(void *iBootBuf, size_t iBootBufSize, bootconfig *bcfg){
     patchfinder::ibootpatchfinder *ibpf = nullptr;
     cleanup([&]{
@@ -83,6 +204,7 @@ int ra1nsn0w::patchFunciBoot(void *iBootBuf, size_t iBootBufSize, bootconfig *bc
     }
     
     addiBootpatch(wtf_pwndfu, get_wtf_pwndfu_patch, "wtf_pwndfu")
+    addiBootpatch(iboot_always_production, get_always_production_patch, "get_always_production_patch")
 
     if (ibpf->has_recovery_console()) {
         bcfg->didProcessKernelLoader = true;
@@ -99,15 +221,16 @@ int ra1nsn0w::patchFunciBoot(void *iBootBuf, size_t iBootBufSize, bootconfig *bc
         }
         
         addiBootpatch(iboot_add_rw_and_rx_mappings, get_rw_and_x_mappings_patch_el1, "add_rw_and_rx_mappings")
+        addiBootpatch(iboot_no_img3_dumplist, get_no_img3_dumplist_patch, "get_no_img3_dumplist_patch")
         addiBootpatch(iboot_sep_skip_lock, get_tz0_lock_patch, "get_tz0_lock_patch")
         addiBootpatch(iboot_sep_skip_bpr, get_skip_set_bpr_patch, "get_skip_set_bpr_patch")
         addiBootpatch(iboot_sep_force_local, get_force_septype_local_patch, "get_force_septype_local_patch")
         addiBootpatch(iboot_sep_force_raw, get_sep_load_raw_patch, "get_sep_load_raw_patch")
         addiBootpatch(iboot_largepicture, get_large_picture_patch, "get_large_picture_patch")
         addiBootpatch(iboot_atv4k_enable_uart, get_atv4k_enable_uart_patch, "get_atv4k_enable_uart_patch")
-        addiBootpatch(iboot_always_production, get_always_production_patch, "get_always_production_patch")
         addiBootpatch(iboot_always_sepfw_booted, get_always_sepfw_booted_patch, "get_always_sepfw_booted_patch")
         addiBootpatch(iboot_no_force_dfu, get_no_force_dfu_patch, "get_no_force_dfu_patch")
+        addiBootpatch(iboot_honor_bootargs, get_honor_nvram_boot_arg_patch, "get_honor_nvram_boot_arg_patch")
         addiBootpatch(iboot_dtre_debug_enable, get_debug_enabled_patch, "get_debug_enabled_patch")
 
         
@@ -116,7 +239,13 @@ int ra1nsn0w::patchFunciBoot(void *iBootBuf, size_t iBootBufSize, bootconfig *bc
             auto patch = ibpf->set_root_ticket_hash(cfg->root_ticket_hash.data(), cfg->root_ticket_hash.size());
             patches.insert(patches.end(), patch.begin(), patch.end());
         }
-        
+
+        if (cfg->boot_manifest_hash.size())            {
+            info("iBoot: Adding boot_manifest_hash patch...");
+            auto patch = ibpf->set_boot_manifest_hash(cfg->boot_manifest_hash.data(), cfg->boot_manifest_hash.size());
+            patches.insert(patches.end(), patch.begin(), patch.end());
+        }
+
         if (cfg->ra1nra1n.size()){
             {
                 info("iBoot: Adding ra1nra1n patch...");
@@ -124,8 +253,8 @@ int ra1nsn0w::patchFunciBoot(void *iBootBuf, size_t iBootBufSize, bootconfig *bc
                 patches.insert(patches.end(), patch.begin(), patch.end());
             }
             {
-                info("iBoot: Adding replace_reboot_with_memcpy patch...");
-                auto patch = ibpf->replace_cmd_with_memcpy("reboot");
+                info("iBoot: Adding replace_cmd_with_ra1nra1n patch...");
+                auto patch = ibpf->replace_cmd_with_ra1nra1n("reboot");
                 patches.insert(patches.end(), patch.begin(), patch.end());
             }
         }else{
@@ -228,6 +357,7 @@ int ra1nsn0w::patchFuncKernel(void *kernelBuf, size_t kernelBufSize, bootconfig 
         addKernelpatch(kpatch_allow_uid, get_allow_UID_key_patch, "get_allow_UID_key_patch");
         addKernelpatch(kpatch_add_read_bpr, get_read_bpr_patch, "get_read_bpr_patch");
         addKernelpatch(kpatch_no_ramdisk_detect, get_ramdisk_detection_patch, "get_ramdisk_detection_patch");
+        addKernelpatch(kpatch_no_nonce_entanglement, get_no_nonce_entanglement_patch, "get_no_nonce_entanglement_patch");
         addKernelpatch(kpatch_noemf, get_noemf_patch, "get_noemf_patch");
         addKernelpatch(kpatch_get_kernelbase_syscall, get_kernelbase_syscall_patch, "get_kernelbase_syscall_patch");
         addKernelpatch(kpatch_tfp0, get_tfp0_patch, "get_tfp0_patch");
@@ -236,6 +366,10 @@ int ra1nsn0w::patchFuncKernel(void *kernelBuf, size_t kernelBufSize, bootconfig 
         addKernelpatch(kpatch_force_boot_ramdisk, get_force_boot_ramdisk_patch, "get_force_boot_ramdisk_patch");
         addKernelpatch(kpatch_root_from_sealed_apfs, get_apfs_root_from_sealed_livefs_patch, "get_apfs_root_from_sealed_livefs_patch");
         addKernelpatch(kpatch_apfs_skip_authenticated_root, get_apfs_skip_authenticate_root_hash_patch, "get_apfs_skip_authenticate_root_hash_patch");
+        addKernelpatch(kpatch_allow_sep_boot_skip_stage1, get_allow_sep_boot_skip_stage1, "get_allow_sep_boot_skip_stage1");
+        addKernelpatch(kpatch_sep_is_obliterating, get_sep_is_obliterating_patch, "get_sep_is_obliterating_patch");
+        addKernelpatch(kpatch_img3nor_checks, get_AppleImage3NORAccess_sigcheck_patch, "get_AppleImage3NORAccess_sigcheck_patch");
+        addKernelpatch(kpatch_raw_sep_romcmd, get_raw_sep_romcmd_patch, "get_raw_sep_romcmd_patch");
     }
     
     if (cfg->kernelHardcodeBootargs.size()) {
@@ -313,6 +447,78 @@ int ra1nsn0w::patchFuncKernel(void *kernelBuf, size_t kernelBufSize, bootconfig 
     return 0;
 }
 
+int ra1nsn0w::patchFuncTXM(void *txmBuf, size_t txmBufSize, bootconfig *bcfg){
+    std::vector<patchfinder::patch> patches;
+    patchfinder::txmpatchfinder *txmpf = nullptr;
+    cleanup([&]{
+        safeDelete(txmpf);
+    });
+    const launchConfig *cfg = bcfg->launchcfg;
+
+    txmpf = patchfinder::txmpatchfinder64::make_txmpatchfinder64(txmBuf, txmBufSize);
+    
+    {
+        addTXMpatch(txm_codesig, get_codesignature_patches, "codesignature")
+    }
+
+    if (cfg->replacePatches.find('xrtr') != cfg->replacePatches.end()) {
+        auto replacePatches = cfg->replacePatches.at('xrtr');
+        for (auto &r : replacePatches) {
+            auto patch = txmpf->get_replace_string_patch(r.first, r.second);
+            patches.insert(patches.end(), patch.begin(), patch.end());
+        }
+        info("Inserted replacepatches for rtrx!");
+    }
+
+    if (cfg->replacePatches.find('mxrt') != cfg->replacePatches.end()) {
+        auto replacePatches = cfg->replacePatches.at('mxrt');
+        for (auto &r : replacePatches) {
+            auto patch = txmpf->get_replace_string_patch(r.first, r.second);
+            patches.insert(patches.end(), patch.begin(), patch.end());
+        }
+        info("Inserted replacepatches for trxm!");
+    }
+    try {
+        auto userpatches = cfg->userPatches.at('xrtr'); //check if we have custom user patches for this component
+        patches.insert(patches.end(), userpatches.begin(), userpatches.end());
+        info("Kernel: Inserted custom userpatches for rtrx!");
+    } catch (...) {
+        //
+    }
+    
+    try {
+        auto userpatches = cfg->userPatches.at('mxrt'); //check if we have custom user patches for this component
+        patches.insert(patches.end(), userpatches.begin(), userpatches.end());
+        info("Kernel: Inserted custom userpatches for trxm!");
+    } catch (...) {
+        //
+    }
+
+    for (auto p : cfg->activePlugins) {
+        auto ppatches = p.second->patcher('xrtr', txmBuf, txmBufSize);
+        patches.insert(patches.end(), ppatches.begin(), ppatches.end());
+    }
+    
+    /* ---------- Applying collected patches ---------- */
+    info("TXM: Applying patches...");
+    bcfg->appliedPatches[bcfg->curPatchComponent] = patches;
+    for (auto p : patches) {
+        uint8_t *pbuf = (uint8_t*)txmBuf;
+        uint64_t off = (uint64_t)((const uint8_t *)txmpf->memoryForLoc(p._location) - pbuf);
+#ifdef DEBUG
+        printf("TXM: Applying patch=%p : ",(void*)p._location);
+        for (int i=0; i<p.getPatchSize(); i++) {
+            printf("%02x",((uint8_t*)p.getPatch())[i]);
+        }
+        printf("\n");
+#endif
+        memcpy(&pbuf[off], p.getPatch(), p.getPatchSize());
+    }
+    
+    info("TXM: Patches applied!");
+    return 0;
+}
+
 void ra1nsn0w::exportPatchesToJson(std::map<uint32_t,std::vector<patchfinder::patch>> patches, const char *outfilePath){
     plist_t p_patches = NULL;
     char *json = NULL;
@@ -378,7 +584,14 @@ img4tool::ASN1DERElement ra1nsn0w::patchIMG4(const void *buf, size_t bufSize, co
         }
     }
     
-    return img4tool::appendPayloadToIM4P(patchedIM4P, payload.payload(), payload.payloadSize(), usedCompression, hypervisor.payload(), hypervisor.payloadSize());
+    auto ret = img4tool::appendPayloadToIM4P(patchedIM4P, payload.payload(), payload.payloadSize(), usedCompression, hypervisor.payload(), hypervisor.payloadSize());
+    
+    if (img4tool::im4pContainsPAYP(im4p)){
+        auto payp = img4tool::getPAYPFromIM4P(im4p);
+        ret = img4tool::appendPAYPToIM4P(ret, payp);
+    }
+    
+    return ret;
 }
 
 tihmstar::Mem ra1nsn0w::patchIMG3(const void *buf, size_t bufSize, const char *ivstr, const char *keystr, std::string findstr, std::function<int(void *, size_t, void*)> patchfunc, void *param){

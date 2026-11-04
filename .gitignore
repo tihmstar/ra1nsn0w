@@ -32,3 +32,5 @@ project.xcworkspace
 xcshareddata
 tools/iBootPatcher/iBootPatcher
 tools/kernelPatcher/kernelPatcher
+tools/txmPatcher/txmPatcher
+*.exe

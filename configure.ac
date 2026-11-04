@@ -38,16 +38,16 @@ CXXFLAGS+=" -std=c++11"
 CFLAGS+=" -std=c11"
 LDFLAGS+=" -lpthread"
 
-LIBGENERAL_REQUIRES_STR="libgeneral >= 75"
-LIBFRAGMENTZIP_REQUIRES_STR="libfragmentzip >= 67"
+LIBGENERAL_REQUIRES_STR="libgeneral >= 238"
+LIBFRAGMENTZIP_REQUIRES_STR="libfragmentzip >= 104"
 LIBFWKEYFETCH_REQUIRES_STR="libfwkeyfetch >= 1"
-LIBIMG4TOOL_REQUIRES_STR="libimg4tool >= 202"
-LIBIMG3TOOL_REQUIRES_STR="libimg3tool >= 8"
-LIBIMG1TOOL_REQUIRES_STR="libimg1tool >= 12"
+LIBIMG4TOOL_REQUIRES_STR="libimg4tool >= 304"
+LIBIMG3TOOL_REQUIRES_STR="libimg3tool >= 52"
+LIBIMG1TOOL_REQUIRES_STR="libimg1tool >= 16"
 LIBIRECOVERY_REQUIRES_STR="libirecovery-1.0 >= 1.0.0"
-LIBPATCHFINDER_REQUIRES_STR="libpatchfinder >= 153"
+LIBPATCHFINDER_REQUIRES_STR="libpatchfinder >= 310"
 LIBPLIST_REQUIRES_STR="libplist-2.0 >= 2.3.0"
-LIBTSSCHECKER_REQUIRES_STR="libtsschecker >= 336"
+LIBTSSCHECKER_REQUIRES_STR="libtsschecker >= 370"
 OPENSSL_REQUIRES_STR="openssl"
 
 PKG_CHECK_MODULES(libgeneral, $LIBGENERAL_REQUIRES_STR)
@@ -103,9 +103,15 @@ AC_ARG_WITH([kernelpatcher],
             [with_kernelpatcher=no],
             [with_kernelpatcher=yes])
 
+AC_ARG_WITH([txmpatcher],
+            [AS_HELP_STRING([--without-txmpatcher],
+            [build with txmpatcher @<:@default=yes@:>@])],
+            [with_txmpatcher=no],
+            [with_txmpatcher=yes])
 
 AM_CONDITIONAL(WITH_IBOOTPATCHER, test x$with_ibootpatcher == xyes)
 AM_CONDITIONAL(WITH_KERNELPATCHER, test x$with_kernelpatcher == xyes)
+AM_CONDITIONAL(WITH_TXMPATCHER, test x$with_txmpatcher == xyes)
 
 
 if test "$debug_build" = true; then
@@ -152,6 +158,7 @@ AC_CONFIG_FILES([Makefile
                  libra1nsn0w.pc
                  tools/iBootPatcher/Makefile
                  tools/kernelPatcher/Makefile
+                 tools/txmPatcher/Makefile
                  tools/Makefile
                  ra1nsn0w/Makefile])
 AC_OUTPUT
@@ -165,7 +172,8 @@ Configuration for $PACKAGE-$VERSION:
   have img1tool ...........: $have_img1tool
   have plugin support .....: $plugin_support
   with iBootPatcher .......: $with_ibootpatcher
-  with kernelPatcher ......: $with_kernelpatcher"
+  with kernelPatcher ......: $with_kernelpatcher
+  with txmPatcher .........: $with_txmpatcher"
 
 echo "  compiler ................: ${CC}
 

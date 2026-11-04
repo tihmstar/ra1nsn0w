@@ -66,13 +66,16 @@ namespace ra1nsn0w{
 
         void sendComponent(const void *buf, size_t size);
         void setCheckpoint();
+        void unclaim();
+        void claim(bool waitForDevice);
         void waitForReconnect(uint32_t timeoutMS);
         void waitForDisconnect(uint32_t timeoutMS);
 
         void sendCommand(std::string command);
         std::string getEnv(std::string env);
+        void setEnv(std::string env, std::string val);
 
-        int usbReceive(char *buffer, size_t size);
+        size_t usbReceive(char *buffer, size_t size);
         
 #pragma mark public static functions
         friend void irecv_event_cb(const irecv_device_event_t* event, void *userdata) noexcept;

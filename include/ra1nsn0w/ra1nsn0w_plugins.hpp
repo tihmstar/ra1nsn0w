@@ -19,6 +19,8 @@
 
 #include <getopt.h>
 
+#define RA1NSN0W_PLUGIN_API_VERSION 2
+
 namespace tihmstar {
     namespace ra1nsn0w{
         class PluginObj{
@@ -26,6 +28,8 @@ namespace tihmstar {
             virtual ~PluginObj();
             virtual bool argparse(std::string longopt, const char *optarg) = 0;
             virtual std::vector<patchfinder::patch> patcher(uint32_t component, const void *buf, size_t bufSize) = 0;
+            virtual bool wantsPatchingRamdisk() = 0;
+            virtual tihmstar::Mem ramdiskPatcher(const void *buf, size_t bufSize) = 0;
         };
     
         typedef bool (*f_argparse_t)(void *param, std::string longopt, const char *optarg);
@@ -33,6 +37,7 @@ namespace tihmstar {
         typedef std::shared_ptr<PluginObj>(*f_constructor)();
 
         struct Plugin{
+            uint32_t apiVersion;
             const char *cmdHelp;
             const struct option *longopts;
             f_constructor init;
@@ -44,6 +49,7 @@ namespace tihmstar {
 #pragma mark argparser helper
         void parserUserPatch(std::string userpatch, launchConfig &cfg, bool isFile = false);
         void parserCustomComponent(std::string customcomponent, launchConfig &cfg);
+        void parserBytesReplacePatch(std::string userpatch, launchConfig &cfg);
         void parserStringReplacePatch(std::string userpatch, launchConfig &cfg);
 
 #pragma mark helpscreen
@@ -52,13 +58,15 @@ namespace tihmstar {
         const char *getCmdHelpStringPlugins(void);
         const char *getCmdHelpStringiBoot(void);
         const char *getCmdHelpStringKernel(void);
+        const char *getCmdHelpStringTXM(void);
 
 #pragma mark Plugins
         const char *getShortOpts(void);
         const struct option *getLongOpts(void);
     
-        void pluginRegister(const Plugin *plugin);
+        bool pluginRegister(const Plugin *plugin);
         void pluginUnregister(const Plugin *plugin);
+        bool loadPlugins();
     };
 };
 

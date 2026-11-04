@@ -1,6 +1,6 @@
-AM_CFLAGS = -I$(top_srcdir)/include $(libgeneral_CFLAGS) $(libimg4tool_CFLAGS) $(libimg3tool_CFLAGS)
+AM_CFLAGS = -I$(top_srcdir)/include $(libfwkeyfetch_CFLAGS) $(libgeneral_CFLAGS) $(libimg4tool_CFLAGS) $(libimg3tool_CFLAGS) $(libpatchfinder_CFLAGS)
 AM_CXXFLAGS = $(AM_CFLAGS) $(GLOBAL_CXXFLAGS)
-AM_LDFLAGS = $(libgeneral_LIBS) $(libimg4tool_LIBS) $(libimg3tool_LIBS)
+AM_LDFLAGS = $(libfwkeyfetch_LIBS) $(libgeneral_LIBS) $(libimg4tool_LIBS) $(libimg3tool_LIBS) $(libpatchfinder_LIBS)
 
 
 if WITH_KERNELPATCHER

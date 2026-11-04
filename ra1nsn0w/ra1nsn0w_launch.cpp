@@ -10,13 +10,16 @@
 #include "../include/ra1nsn0w/ra1nsn0w_plugins.hpp"
 
 #include <libgeneral/macros.h>
+#include <plist/plist.h>
+#include <libpatchfinder/ibootpatchfinder/ibootpatchfinder64.hpp>
+#include <libpatchfinder/ibootpatchfinder/ibootpatchfinder32.hpp>
+#include <libpatchfinder/kernelpatchfinder/kernelpatchfinder64.hpp>
+#include <libpatchfinder/kernelpatchfinder/kernelpatchfinder32.hpp>
 #include <libfwkeyfetch/libfwkeyfetch.hpp>
 #include <img3tool/img3tool.hpp>
 #include <tsschecker/tsschecker.hpp>
 #include <tsschecker/TssRequest.hpp>
 #include <tsschecker/TSSException.hpp>
-#include <plist/plist.h>
-
 #include <sys/stat.h>
 #include <string.h>
 
@@ -31,6 +34,11 @@ extern "C"{
 #ifdef HAVE_IMG1TOOL
 #include <img1tool/img1tool.hpp>
 #endif
+
+#ifdef WITH_PLUGIN_SUPPORT
+#   include <dirent.h>
+#   include <dlfcn.h>
+#endif //WITH_PLUGIN_SUPPORT
 
 using namespace tihmstar;
 using namespace tihmstar::ra1nsn0w;
@@ -61,10 +69,19 @@ static tihmstar::Mem downloadComponent(fragmentzip_t *fzinfo, std::string path, 
     cleanup([&]{
         safeFree(buf);
     });
+    int err = 0;
     size_t bufSize = 0;
-    if (isOta) path = "AssetData/boot/" + path;
-    info("Loading %s ...",path.c_str());
-    retassure(!fragmentzip_download_to_memory(fzinfo, path.c_str(), &buf, &bufSize, fragmentzip_callback),"Failed to load '%s'",path.c_str());
+    std::string usepath = path;
+    if (isOta) usepath = "AssetData/boot/" + path;
+    info("Loading %s ...",usepath.c_str());
+    err = fragmentzip_download_to_memory(fzinfo, usepath.c_str(), &buf, &bufSize, fragmentzip_callback);
+    if (isOta && err){
+        error("Failed to load '%s'",usepath.c_str());
+        if (isOta) usepath = "AssetData/" + path;
+        info("Loading %s ...",usepath.c_str());
+        err = fragmentzip_download_to_memory(fzinfo, usepath.c_str(), &buf, &bufSize, fragmentzip_callback);
+    }
+    retassure(!err,"Failed to load '%s'",usepath.c_str());
     {
         Mem ret = {buf,bufSize}; buf = NULL; bufSize = 0;
         return ret;
@@ -93,10 +110,14 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     libfwkeyfetch::fw_key iBSSKeys = {};
     libfwkeyfetch::fw_key iBECKeys = {};
     libfwkeyfetch::fw_key kernelKeys = {};
+    libfwkeyfetch::fw_key ramdiskKeys = {};
+
     
     std::string ibssPath;
     std::string ibecPath;
     std::string kernelPath;
+    std::string txmPath;
+    std::string rdskPath;
     std::string dtrePath;
     std::string trstPath;
     std::string rsepPath;
@@ -104,6 +125,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     tihmstar::Mem ibssData;
     tihmstar::Mem ibecData;
     tihmstar::Mem kernelData;
+    tihmstar::Mem txmData;
     tihmstar::Mem dtreData;
     tihmstar::Mem trstData;
     tihmstar::Mem rsepData;
@@ -112,11 +134,13 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     uint32_t cpid = 0;
     bool isIMG4 = idev.supportsIMG4();
     bool isRestorePlist = false;
+    bool ramdiskNeedsPacking = cfg.ramdiskIsRawDMG;
     
     img4tool::ASN1DERElement piBSS;
     img4tool::ASN1DERElement piBEC;
     
     img4tool::ASN1DERElement pkernel;
+    img4tool::ASN1DERElement ptxm;
     img4tool::ASN1DERElement pdtre;
     img4tool::ASN1DERElement ptrst;
     img4tool::ASN1DERElement prsep;
@@ -130,7 +154,11 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     
     info("Loading BuildManifest...");
     if (cfg.isOtaFirmware) {
-        retassure(!fragmentzip_download_to_memory(fzinfo, "AssetData/boot/BuildManifest.plist", &buildmanifestBuf, &buildmanifestBufSize, fragmentzip_callback),"Failed to load BuildManifest.plist");
+        try {
+            retassure(!fragmentzip_download_to_memory(fzinfo, "AssetData/boot/BuildManifest.plist", &buildmanifestBuf, &buildmanifestBufSize, fragmentzip_callback),"Failed to load BuildManifest.plist");
+        } catch (...) {
+            retassure(!fragmentzip_download_to_memory(fzinfo, "AssetData/BuildManifest.plist", &buildmanifestBuf, &buildmanifestBufSize, fragmentzip_callback),"Failed to load BuildManifest.plist");
+        }
     }else{
         try {
             retassure(!fragmentzip_download_to_memory(fzinfo, "BuildManifest.plist", &buildmanifestBuf, &buildmanifestBufSize, fragmentzip_callback),"Failed to load BuildManifest.plist");
@@ -155,10 +183,24 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             if (cfg.isSRD) variant = "Research";
         }
     }
-    if (isRestorePlist){
-        buildidentity = tsschecker::buildIdentityFromRestorePlist(buildmanifest);
+    
+    retassure(pBuildnum = plist_dict_get_item(buildmanifest, "ProductBuildVersion"), "Failed to get buildnum from BuildManifest");
+    retassure(plist_get_node_type(pBuildnum) == PLIST_STRING, "ProductBuildVersion is not a string");
+    plist_get_string_val(pBuildnum, &buildnum);
+    retassure(buildnum, "failed to get buildnum");
+    
+    {
+        plist_t pBuildVers = NULL;
+        retassure(pBuildVers = plist_dict_get_item(buildmanifest, "ProductVersion"), "Failed to get buildnum from ProductVersion");
+        retassure(plist_get_node_type(pBuildVers) == PLIST_STRING, "ProductVersion is not a string");
+        {
+            uint64_t len = 0;
+            buildMajorVersion = atoi(plist_get_string_ptr(pBuildVers, &len));
+        }
+        retassure(buildMajorVersion, "failed to get buildvers");
     }
-    if (idev.getDeviceMode() == iOSDevice::wtf){
+
+    if (idev.getDeviceMode() == iOSDevice::wtf && buildMajorVersion > 1){
         //boot WTF image
         char *wtfBuf = NULL;
         cleanup([&]{
@@ -174,9 +216,10 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             
             info("Patching WTF...");
             int patchret = -1;
-            for (int i=0; i<3; i++){
+            for (int i=0; true; i++){
                 bootconfig wtf_bootcfg = bootcfg;
                 launchConfig wtf_launchcfg = *bootcfg.launchcfg;
+                wtf_launchcfg.no_iboot_sigpatch = false; //what applies to next stage iBoot doesn't apply here
                 wtf_bootcfg.curPatchComponent = '.ftw'; //wtf. (not actually a thing)
                 if (i == 0){
                     //first try, iOS 3 patch
@@ -194,6 +237,18 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
                     for (int i=0; i<3; i++) {
                         orig_s.insert(orig_s.begin()+1, '\0');
                     }
+                    wtf_launchcfg.replacePatches['.ftw'].push_back({orig_s,new_s});
+                } else if (i == 2){
+                    //third try, iOS 2.0 patch
+                    std::string new_s  = "] SIGP:[WTF]";
+                    new_s.push_back('\0');
+                    std::string orig_s = "]";
+                    for (int i=0; i<3; i++) {
+                        orig_s.insert(orig_s.end(), '\0');
+                    }
+                    orig_s+="panic: ";
+                    orig_s.insert(orig_s.end(), '\0');
+                    orig_s.insert(orig_s.end(), '\n');
                     wtf_launchcfg.replacePatches['.ftw'].push_back({orig_s,new_s});
                 }else{
                     reterror("Unexpected try %d",i);
@@ -222,9 +277,13 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
         idev.waitForReconnect(20000);
     }
     
-    if (bootcfg.launchcfg->justDFU && idev.getDeviceMode() == iOSDevice::dfu) {
+    if (bootcfg.launchcfg->justDFU) {
         info("Device reached DFU mode, done!");
         return bootcfg.appliedPatches;
+    }
+    
+    if (isRestorePlist){
+        tsschecker::buildIdentityFromRestorePlist(buildmanifest,idev.getDeviceCPID(), idev.getDeviceBDID());
     }
     
     if (!buildidentity) buildidentity = tsschecker::TssRequest::getBuildIdentityForDevice(buildmanifest, idev.getDeviceCPID(), idev.getDeviceBDID(), variant);
@@ -241,22 +300,6 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
         info("Got CPID=0x%llx",cpid);
     }
     
-    retassure(pBuildnum = plist_dict_get_item(buildmanifest, "ProductBuildVersion"), "Failed to get buildnum from BuildManifest");
-    retassure(plist_get_node_type(pBuildnum) == PLIST_STRING, "ProductBuildVersion is not a string");
-    plist_get_string_val(pBuildnum, &buildnum);
-    retassure(buildnum, "failed to get buildnum");
-    
-    {
-        plist_t pBuildVers = NULL;
-        retassure(pBuildVers = plist_dict_get_item(buildmanifest, "ProductVersion"), "Failed to get buildnum from ProductVersion");
-        retassure(plist_get_node_type(pBuildVers) == PLIST_STRING, "ProductVersion is not a string");
-        {
-            uint64_t len = 0;
-            buildMajorVersion = atoi(plist_get_string_ptr(pBuildVers, &len));
-        }
-        retassure(buildMajorVersion, "failed to get buildvers");
-    }
-    
 #pragma mark get path for components
     ibssPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "iBSS");
     info("Found iBSS at %s",ibssPath.c_str());
@@ -269,7 +312,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     }
     info("Found iBEC at %s",ibecPath.c_str());
 
-    if (!bootcfg.launchcfg->justiBoot || bootcfg.launchcfg->kernel_nopatch) {
+    if (!bootcfg.launchcfg->justiBoot) {
         kernelPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "KernelCache");
         info("Found kernel at %s",kernelPath.c_str());
 
@@ -291,6 +334,17 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             //
         }
         
+        try {
+            if (cfg.isSRD || cfg.restoreBoot) {
+                txmPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "Ap,RestoreTrustedExecutionMonitor");
+            }else{
+                txmPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "Ap,TrustedExecutionMonitor");
+            }
+            info("Found TrustedExecutionMonitor at %s",txmPath.c_str());
+        } catch (tihmstar::TSSException_missingValue &e) {
+            //
+        }
+        
         if (!bootcfg.launchcfg->boot_no_sep) {
             try {
                 rsepPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "RestoreSEP");
@@ -298,6 +352,13 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             } catch (tihmstar::TSSException_missingValue &e) {
                 //
             }
+        }
+        
+        try{
+            rdskPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "RestoreRamDisk");
+            info("Found RestoreRamdisk at %s",rdskPath.c_str());
+        } catch (tihmstar::exception &e){
+            error("Failed to get RestoreRamDisk with error:\n%s\nIgnoring....",e.dumpStr().c_str());
         }
     }
     
@@ -328,6 +389,12 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
                 reterror("Failed to get firmware keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
             }
         }
+        try {
+            ramdiskKeys = libfwkeyfetch::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, rdskPath, cpid, cfg.customKeysZipUrl);
+        } catch (tihmstar::exception &e) {
+            info("libfwkeyfetch::getFirmwareKeyForPath failed with error:\n%s",e.dumpStr().c_str());
+            error("Failed to get ramdisk keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888, ignoring...");
+        }
     }
     
 #pragma mark load components
@@ -335,13 +402,14 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     if (!cfg.iBECIm4p.size()) ibecData = downloadComponent(fzinfo, ibecPath, cfg.isOtaFirmware);
 
     if (cfg.isSRD) {
-        auto ramdiskPath = tsschecker::TssRequest::getPathForComponentBuildIdentity(buildidentity, "RestoreRamDisk");
-        info("Found RestoreRamdisk at %s",ramdiskPath.c_str());
-        if (!cfg.ramdiskIm4p.size()) rdskData = downloadComponent(fzinfo, ramdiskPath, cfg.isOtaFirmware);
+        if (!cfg.ramdiskIm4p.size()) rdskData = downloadComponent(fzinfo, rdskPath, cfg.isOtaFirmware);
     }
+    if (!rdskData.size()) rdskData = cfg.ramdiskIm4p;
 
     if (!cfg.kernelIm4p.size() && kernelPath.size()) kernelData = downloadComponent(fzinfo, kernelPath, cfg.isOtaFirmware);
-    
+
+    if (!cfg.txmIm4p.size() && txmPath.size()) txmData = downloadComponent(fzinfo, txmPath, cfg.isOtaFirmware);
+
     if (!bootcfg.launchcfg->justiBoot) {
 
         dtreData = downloadComponent(fzinfo, dtrePath, cfg.isOtaFirmware);
@@ -372,7 +440,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
         if (isIMG4) {
             piBSS = patchIMG4(ibssData.data(), ibssData.size(), iBSSKeys.iv, iBSSKeys.key, "iBoot", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
         }else{
-            ibssData = patchIMG3(ibssData.data(), ibssData.size(), iBSSKeys.iv, iBSSKeys.key, "iBoot", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
+            if (buildMajorVersion > 1) ibssData = patchIMG3(ibssData.data(), ibssData.size(), iBSSKeys.iv, iBSSKeys.key, "iBoot", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
         }
     }
     
@@ -398,7 +466,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             if (isIMG4) {
                 piBEC = patchIMG4(ibecData.data(), ibecData.size(), iBECKeys.iv, iBECKeys.key, "iBoot", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
             }else{
-                ibecData = patchIMG3(ibecData.data(), ibecData.size(), iBECKeys.iv, iBECKeys.key, "iBoot", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
+                if (buildMajorVersion > 1) ibecData = patchIMG3(ibecData.data(), ibecData.size(), iBECKeys.iv, iBECKeys.key, "iBoot", (int(*)(void*,size_t,void*))patchFunciBoot, (void*)&bootcfg);
             }
         }
     }
@@ -440,23 +508,70 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             }
         }
         
-        if (cfg.decrypt_devicetree) {
-            info("Decrypting Devicetree");
-            libfwkeyfetch::fw_key devicetreeKeys = {};
+        if (cfg.txmIm4p.size()) {
+            retassure(isIMG4, "TXM requires IMG4");
             try {
-                devicetreeKeys = libfwkeyfetch::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, dtrePath, cpid, cfg.customKeysZipUrl);
+                ptxm = img4tool::ASN1DERElement((char*)cfg.txmIm4p.data(), cfg.txmIm4p.size());
+                ptxm = img4tool::renameIM4P(ptxm, "rtrx");
             } catch (tihmstar::exception &e) {
-                info("libfwkeyfetch::getFirmwareKey(\"DeviceTree\") failed with error:\n%s",e.dumpStr().c_str());
-                reterror("Failed to get firmware keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
+                error("Failed to load txm with error=%d (%s). Maybe not an IM4P file?",e.code(),e.what());
+#ifdef DEBUG
+                e.dump();
+#endif
+                reterror("Packing TXM on the fly is currently not implemented!");
             }
-            
-            //run with empty patcher function just for decryption
+        }else if (txmData.size()) {
+            if (cfg.txm_nopatch){
+                warning("txmpatches disabled by commandline argument, not modifying IM4P content");
+                if (isIMG4) {
+                    ptxm = {txmData.data(),txmData.size()};
+                }
+            }else{
+                info("Patching txm...\n");
+                bootcfg.curPatchComponent = 'xrtr'; //rtrx (restore txm)
+                retassure(isIMG4, "TXM requires IMG4");
+                ptxm = patchIMG4(txmData.data(), txmData.size(), NULL, NULL, "Apple", (int(*)(void*,size_t,void*))patchFuncTXM, (void*)&bootcfg);
+            }
+            ptxm = img4tool::renameIM4P(ptxm, "rtrx");
+        }
+        
+        if (cfg.dtreIm4p.size()) {
             if (isIMG4) {
-                pdtre = patchIMG4(dtreData.data(), dtreData.size(), devicetreeKeys.iv, devicetreeKeys.key, NULL, [](void*, size_t, void*)->int{return 0;}, NULL);
+                try {
+                    pdtre = img4tool::ASN1DERElement((char*)cfg.dtreIm4p.data(), cfg.dtreIm4p.size());
+                    pdtre = img4tool::renameIM4P(pdtre, "dtre");
+                } catch (tihmstar::exception &e) {
+                    error("Failed to load devicetree with error=%d (%s). Maybe not an IM4P file?",e.code(),e.what());
+#ifdef DEBUG
+                    e.dump();
+#endif
+                    pdtre = img4tool::getEmptyIM4PContainer("dtre", "Devicetree packed by ra1nsn0w on the fly");
+                    pdtre = appendPayloadToIM4P(pdtre, (char*)cfg.dtreIm4p.data(), cfg.dtreIm4p.size());
+                }
+            }else{
+                dtreData = cfg.dtreIm4p;
             }
         }else{
-            if (isIMG4) {
-                pdtre = {dtreData.data(),dtreData.size()};
+            if (cfg.decrypt_devicetree) {
+                info("Decrypting Devicetree");
+                libfwkeyfetch::fw_key devicetreeKeys = {};
+                try {
+                    devicetreeKeys = libfwkeyfetch::getFirmwareKeyForPath(idev.getDeviceProductType(),buildnum, dtrePath, cpid, cfg.customKeysZipUrl);
+                } catch (tihmstar::exception &e) {
+                    info("libfwkeyfetch::getFirmwareKey(\"DeviceTree\") failed with error:\n%s",e.dumpStr().c_str());
+                    reterror("Failed to get firmware keys. You can yout wikiproxy to get them from theiphonewiki or if keys are not available you can create your own bundle and host it on localhost:8888");
+                }
+                
+                bootcfg.curPatchComponent = 'ertd'; //dtre (devicetree)
+                if (isIMG4) {
+                    pdtre = patchIMG4(dtreData.data(), dtreData.size(), devicetreeKeys.iv, devicetreeKeys.key, "Apple", (int(*)(void*,size_t,void*))patchFuncDevicetree, &bootcfg);
+                }else{
+                    dtreData = patchIMG3(dtreData.data(), dtreData.size(), devicetreeKeys.iv, devicetreeKeys.key, "Apple", (int(*)(void*,size_t,void*))patchFuncDevicetree, &bootcfg);
+                }
+            }else{
+                if (isIMG4) {
+                    pdtre = {dtreData.data(),dtreData.size()};
+                }
             }
         }
         
@@ -488,12 +603,27 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
                 }
             }
         }
-    }else{
-        if (cfg.kernel_nopatch){
-            warning("Kernelpatches disabled by commandline argument, not modifying IM4P content");
-            if (isIMG4) {
-                pkernel = {kernelData.data(),kernelData.size()};
-                pkernel = img4tool::renameIM4P(pkernel, "rkrn");
+    }
+    
+    if (rdskData.size()) {
+        for (auto p : cfg.activePlugins) {
+            if (p.second->wantsPatchingRamdisk()) {
+                if (!ramdiskNeedsPacking){
+                    if (isIMG4){
+                        try {
+                            img4tool::ASN1DERElement pramdisk{rdskData.data(), rdskData.size()};
+                            img4tool::ASN1DERElement payload = img4tool::getPayloadFromIM4P(pramdisk, ramdiskKeys.iv, ramdiskKeys.key, NULL);
+                            rdskData = {(const void*)payload.payload(), payload.size()};
+                        } catch (tihmstar::exception &e) {
+                            error("Failed to unpack ramdisk with error=%d (%s). Maybe not an IM4P file?",e.code(),e.what());
+                        }
+                    }else{
+                        reterror("TODO: on the fly img3 ramdisk extraction not implemented!");
+                    }
+                    ramdiskNeedsPacking = true;
+                }
+                auto newRamdisk = p.second->ramdiskPatcher(rdskData.data(), rdskData.size());
+                if (newRamdisk.size()) rdskData = newRamdisk;
             }
         }
     }
@@ -581,6 +711,10 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
         }
     }
 
+    if (cfg.devicePrepareCB){
+        info("Calling device prepare CB");
+        cfg.devicePrepareCB();
+    }
     
 #pragma mark stich APTicket and send
     if (idev.getDeviceMode() != iOSDevice::recovery) {
@@ -670,7 +804,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
         if (idev.getDeviceMode() == iOSDevice::recovery) {
             idev.sendCommand("go");
         }
-        idev.waitForReconnect(30000);
+        idev.waitForReconnect(60000);
     }
     
     retassure(idev.getDeviceMode() == iOSDevice::recovery, "Device failed to boot iBoot");
@@ -703,9 +837,11 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
                 || strcmp(key_component, "BatteryPlugin") == 0
                 || strcmp(key_component, "DeviceTree") == 0
                 || strcmp(key_component, "KernelCache") == 0
+                || strcmp(key_component, "Ap,TrustedExecutionMonitor") == 0
                 || strcmp(key_component, "LLB") == 0
                 || strcmp(key_component, "RestoreDeviceTree") == 0
                 || strcmp(key_component, "RestoreKernelCache") == 0
+                || strcmp(key_component, "Ap,RestoreTrustedExecutionMonitor") == 0
                 || strcmp(key_component, "RestoreLogo") == 0
                 || strcmp(key_component, "RestoreRamDisk") == 0
                 || strcmp(key_component, "RestoreSEP") == 0
@@ -724,7 +860,8 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
                 plist_t info = plist_dict_get_item(p_component_val, "Info");
                 assure(info);
                 plist_t p_IsLoadedByiBoot = plist_dict_get_item(info, "IsLoadedByiBoot");
-                if (!p_IsLoadedByiBoot || !plist_bool_val_is_true(p_IsLoadedByiBoot)) continue;
+                plist_t p_IsFUDFirmware = plist_dict_get_item(info, "IsFUDFirmware");
+                if ((!p_IsLoadedByiBoot || !plist_bool_val_is_true(p_IsLoadedByiBoot)) && (!p_IsFUDFirmware || !plist_bool_val_is_true(p_IsFUDFirmware))) continue;
                 plist_t path = plist_dict_get_item(info, "Path");
                 
                 plist_t p_Img4PayloadType = plist_dict_get_item(info, "Img4PayloadType");
@@ -813,15 +950,20 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     }
     idev.sendCommand("devicetree");
 
-    if (cfg.ramdiskIm4p.size() || rdskData.size()) {
-        const tihmstar::Mem *realRDSK = cfg.ramdiskIm4p.size() ? &cfg.ramdiskIm4p : &rdskData;
+    if (ptxm.payloadSize()) {
+        info("Sending TXM...");
+        auto stxm = img4FromIM4PandIM4M(ptxm,im4m);
+        idev.sendComponent(stxm.buf(), stxm.size());
+        idev.sendCommand("firmware");
+    }
+    
+    if (rdskData.size()) {
         if (isIMG4) {
             img4tool::ASN1DERElement sramdisk;
-            bool ramdiskNeedsPacking = cfg.ramdiskIsRawDMG;
 
             if (!ramdiskNeedsPacking) {
                 try {
-                    img4tool::ASN1DERElement pramdisk = img4tool::ASN1DERElement((*realRDSK).data(), (*realRDSK).size());
+                    img4tool::ASN1DERElement pramdisk = img4tool::ASN1DERElement(rdskData.data(), rdskData.size());
                     sramdisk = img4FromIM4PandIM4M(pramdisk,im4m);
                 } catch (tihmstar::exception &e) {
                     error("Failed to load ramdisk with error=%d (%s). Maybe not an IM4P file?",e.code(),e.what());
@@ -835,24 +977,23 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             if (ramdiskNeedsPacking){
                 info("Packing raw ramdisk to IM4P...");
                 img4tool::ASN1DERElement pramdisk = img4tool::getEmptyIM4PContainer("rdsk", "Ramdisk packed by ra1nsn0w on the fly");
-                pramdisk = appendPayloadToIM4P(pramdisk, (*realRDSK).data(), (*realRDSK).size());
+                pramdisk = appendPayloadToIM4P(pramdisk, rdskData.data(), rdskData.size());
                 sramdisk = img4FromIM4PandIM4M(pramdisk, im4m);
             }
             
             info("Sending ramdisk...");
             idev.sendComponent(sramdisk.buf(), sramdisk.size());
         }else{
-            bool ramdiskNeedsPacking = cfg.ramdiskIsRawDMG;
             tihmstar::Mem tmpbuf;
             const uint8_t *ramdiskBufPtr = NULL;
             size_t ramdiskBufSize = 0;
 
             if (!ramdiskNeedsPacking){
                 try {
-                    uint32_t type = img3tool::getImg3ImageType((*realRDSK).data(), (*realRDSK).size());
+                    uint32_t type = img3tool::getImg3ImageType(rdskData.data(), rdskData.size());
                     retassure(type == 'rdsk', "TYPE not 'rdsk', this is bad!");
-                    ramdiskBufPtr = (*realRDSK).data();
-                    ramdiskBufSize = (*realRDSK).size();
+                    ramdiskBufPtr = rdskData.data();
+                    ramdiskBufSize = rdskData.size();
                 } catch (tihmstar::exception &e) {
                     error("Failed to load get ramdisk type with error=%d (%s). Maybe not an IMG3 file?",e.code(),e.what());
 #ifdef DEBUG
@@ -863,10 +1004,18 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
             }
 
             if (ramdiskNeedsPacking){
-                info("Packing raw ramdisk to IMG3...");
-                tmpbuf = img3tool::appendPayloadToIMG3(img3tool::getEmptyIMG3Container('rdsk'), 'DATA', (*realRDSK));
-                ramdiskBufPtr = tmpbuf.data();
-                ramdiskBufSize = tmpbuf.size();
+                if (buildMajorVersion == 1){
+                    /*
+                        lowkey packing img1 not supported here
+                     */
+                    ramdiskBufPtr = rdskData.data();
+                    ramdiskBufSize = rdskData.size();
+                }else{
+                    info("Packing raw ramdisk to IMG3...");
+                    tmpbuf = img3tool::appendPayloadToIMG3(img3tool::getEmptyIMG3Container('rdsk'), 'DATA', rdskData);
+                    ramdiskBufPtr = tmpbuf.data();
+                    ramdiskBufSize = tmpbuf.size();
+                }
             }
             
             info("Sending ramdisk...");
@@ -891,16 +1040,22 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
         std::string loadAddr = idev.getEnv("loadaddr");
         idev.sendComponent(cfg.ra1nra1n.data(), cfg.ra1nra1n.size());
 
-        std::string memcpyCommand;
-        if (buildMajorVersion >= 13) {
-            memcpyCommand = "memcpy 0x818000000 ";
-        }else{
-            memcpyCommand = "memcpy 0x820000000 ";
-        }
+        std::string memcpyCommand = "ra1nra1n ";
         memcpyCommand += loadAddr;
-        memcpyCommand += " 0x200000";
-
+        {
+            char buf[0x20] = {};
+            uint32_t rsize = (uint32_t)cfg.ra1nra1n.size();
+            rsize += 0x400;
+            rsize &= ~0x3FF;
+            snprintf(buf, sizeof(buf), " 0x%08x",rsize);
+            memcpyCommand += buf;
+        }
+        debug("sending payload command: '%s'",memcpyCommand.c_str());
         idev.sendCommand(memcpyCommand);
+    }
+    
+    if (buildMajorVersion == 1) {
+        idev.setEnv("boot-args", cfg.bootargs);
     }
 
     info("Sending kernel...");
@@ -920,4 +1075,33 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
 
     info("Done!");
     return bootcfg.appliedPatches;
+}
+
+bool ra1nsn0w::loadPlugins(){
+#ifdef WITH_PLUGIN_SUPPORT
+    if (const char *pluginPath = getenv("RA1NSN0W_PLUGIN_DIRECTORY")) {
+        DIR* pdir = NULL;
+        cleanup([&]{
+            safeFreeCustom(pdir, closedir);
+        });
+        pdir = opendir(pluginPath);
+        std::string ppath = pluginPath;
+        if (ppath.back() != '/') ppath += '/';
+        if (!pdir){
+            error("Failed to opendir '%s'",pluginPath);
+        }else{
+            while (struct dirent *file = readdir(pdir)) {
+                if (!strncmp (file->d_name, ".", 1)) continue;
+                if (file->d_type != DT_REG) continue;
+                std::string fullpath = ppath + file->d_name;
+                void *handle = dlopen(fullpath.c_str(), RTLD_NOW);
+                if (handle) info("Loaded plugin '%s'",fullpath.c_str());
+                else error("Trying to loading plugin '%s' failed with reason '%s'",fullpath.c_str(),dlerror());
+            }
+        }
+    }
+    return true;
+#else
+    return false;
+#endif //WITH_PLUGIN_SUPPORT
 }
