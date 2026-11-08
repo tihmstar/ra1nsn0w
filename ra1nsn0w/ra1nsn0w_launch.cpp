@@ -618,7 +618,11 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
                             error("Failed to unpack ramdisk with error=%d (%s). Maybe not an IM4P file?",e.code(),e.what());
                         }
                     }else{
-                        reterror("TODO: on the fly img3 ramdisk extraction not implemented!");
+                        try {
+                            rdskData = img3tool::getPayloadFromIMG3(rdskData.data(), rdskData.size(), ramdiskKeys.iv, ramdiskKeys.key);
+                        } catch (tihmstar::exception &e) {
+                            error("Failed to unpack ramdisk with error=%d (%s). Maybe not an IMG3 file?",e.code(),e.what());
+                        }
                     }
                     ramdiskNeedsPacking = true;
                 }
