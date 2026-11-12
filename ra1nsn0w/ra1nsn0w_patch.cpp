@@ -369,6 +369,9 @@ int ra1nsn0w::patchFuncKernel(void *kernelBuf, size_t kernelBufSize, bootconfig 
         addKernelpatch(kpatch_allow_sep_boot_skip_stage1, get_allow_sep_boot_skip_stage1, "get_allow_sep_boot_skip_stage1");
         addKernelpatch(kpatch_sep_is_obliterating, get_sep_is_obliterating_patch, "get_sep_is_obliterating_patch");
         addKernelpatch(kpatch_img3nor_checks, get_AppleImage3NORAccess_sigcheck_patch, "get_AppleImage3NORAccess_sigcheck_patch");
+        addKernelpatch(kpatch_lwvm, get_lwvm_rw_patch, "get_lwvm_rw_patch");
+        addKernelpatch(kpatch_sandbox_label_update_execve, get_sandbox_label_update_execve_patch, "get_sandbox_label_update_execve_patch");
+        addKernelpatch(kpatch_proc_enforce_disable, get_proc_enforce_disable_patch, "get_proc_enforce_disable_patch");
         addKernelpatch(kpatch_raw_sep_romcmd, get_raw_sep_romcmd_patch, "get_raw_sep_romcmd_patch");
     }
     

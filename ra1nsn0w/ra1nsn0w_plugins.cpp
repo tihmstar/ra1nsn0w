@@ -118,6 +118,9 @@ static struct option defaultLongopts[] = {
     { "kpatch-sep-allow-skip-boot-stage1",optional_argument,NULL,  0  },
     { "kpatch-sep-is-obliterating",     optional_argument,      NULL,  0  },
     { "kpatch-img3nor-checks",          optional_argument,      NULL,  0  },
+    { "kpatch-lwvm",                    optional_argument,      NULL,  0  },
+    { "kpatch-sandbox-label-update-execve",optional_argument,   NULL,  0  },
+    { "kpatch-proc-enforce-disable",    optional_argument,      NULL,  0  },
     { "sn0wsn0w",                       no_argument,            NULL,  0  },
 
     /* txm patches: */
@@ -236,6 +239,9 @@ static const char helpScreenKernelPatches[] =
 "      --kpatch-sep-allow-skip-boot-stage1\tAllow SEP to start booting from stage2\n" \
 "      --kpatch-kpatch-sep-is-obliterating\tMake SEP thing obliterate-inprogress NVRAM value is set\n" \
 "      --kpatch-img3nor-checks\t\t\tDisable img3 sigchecks in kernel when flashing NOR\n" \
+"      --kpatch-lwvm\t\t\t\tPatch LwVM to allow writeable rootfs\n" \
+"      --kpatch-sandbox-label-update-execve\tFix 'process-exec denied while updating label'\n" \
+"      --kpatch-proc-enforce-disable\t\tPatches proc_enforce var to zero\n" \
 "      --sn0wsn0w\t\t\t\tApply generic kernelpatches\n" \
 "\n";
 
@@ -393,6 +399,9 @@ static bool defaultparseArgument(launchConfig &cfg, std::string curopt, const ch
     else parsePatchConfig("kpatch-sep-allow-skip-boot-stage1",kpatch_allow_sep_boot_skip_stage1);
     else parsePatchConfig("kpatch-kpatch-sep-is-obliterating",kpatch_sep_is_obliterating);
     else parsePatchConfig("kpatch-img3nor-checks",kpatch_img3nor_checks);
+    else parsePatchConfig("kpatch-lwvm",kpatch_lwvm);
+    else parsePatchConfig("kpatch-sandbox-label-update-execve",kpatch_sandbox_label_update_execve);
+    else parsePatchConfig("kpatch-proc-enforce-disable",kpatch_proc_enforce_disable);    
     else parsePatchConfig("kpatch-setuid",kpatch_setuid);
     else parsePatchConfig("kpatch-tfp0",kpatch_tfp0);
     else parsePatchConfig("kpatch-tfp-unrestrict",kpatch_tfp_unrestrict);

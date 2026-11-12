@@ -101,6 +101,9 @@ namespace tihmstar {
             Patchcfg kpatch_allow_sep_boot_skip_stage1 = kPatchcfgNo;
             Patchcfg kpatch_sep_is_obliterating = kPatchcfgNo;
             Patchcfg kpatch_img3nor_checks = kPatchcfgNo;
+            Patchcfg kpatch_lwvm = kPatchcfgNo;
+            Patchcfg kpatch_sandbox_label_update_execve = kPatchcfgNo;
+            Patchcfg kpatch_proc_enforce_disable = kPatchcfgNo;        
             Patchcfg kpatch_raw_sep_romcmd = kPatchcfgNo;
             
             Patchcfg txm_codesig = kPatchcfgNo;
