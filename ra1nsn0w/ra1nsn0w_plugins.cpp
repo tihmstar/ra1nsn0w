@@ -18,10 +18,6 @@
 using namespace tihmstar;
 using namespace tihmstar::ra1nsn0w;
 
-PluginObj::~PluginObj(){
-    //
-}
-
 static struct option defaultLongopts[] = {
     /* General: */
     { "help",                           no_argument,            NULL, 'h' },
@@ -523,6 +519,7 @@ bool ra1nsn0w::pluginRegister(const Plugin *plugin){
     gPlugins.insert(plugin);
     updateCmdHelperStringPlugins();
     updateLongopts();
+    info("Registered plugin '%s'",plugin->pluginName);
     return true;
 #else
     error("ra1nsn0w::pluginRegister called, but ra1nsn0w was built without plugin support!");

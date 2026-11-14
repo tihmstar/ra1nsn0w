@@ -1099,8 +1099,20 @@ bool ra1nsn0w::loadPlugins(){
                 if (file->d_type != DT_REG) continue;
                 std::string fullpath = ppath + file->d_name;
                 void *handle = dlopen(fullpath.c_str(), RTLD_NOW);
-                if (handle) info("Loaded plugin '%s'",fullpath.c_str());
-                else error("Trying to loading plugin '%s' failed with reason '%s'",fullpath.c_str(),dlerror());
+                if (!handle)
+                    error("Trying to loading plugin '%s' failed with dl reason '%s'",fullpath.c_str(),dlerror());
+                else{
+                    Plugin *pluginDef = (Plugin *)dlsym(handle, "pluginDef");
+                    if (!pluginDef){
+                        error("Trying to loading plugin '%s' failed. Could not find 'pluginDef'",fullpath.c_str());
+                    }else{
+                        if (!pluginRegister(pluginDef)){
+                            error("Trying to loading plugin '%s' failed. pluginRegister failed",fullpath.c_str());
+                        }else{
+                            info("Loaded plugin '%s'",fullpath.c_str());
+                        }
+                    }
+                }
             }
         }
     }

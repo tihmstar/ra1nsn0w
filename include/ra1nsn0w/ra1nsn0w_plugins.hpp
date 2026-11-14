@@ -19,13 +19,12 @@
 
 #include <getopt.h>
 
-#define RA1NSN0W_PLUGIN_API_VERSION 2
+#define RA1NSN0W_PLUGIN_API_VERSION 3
 
 namespace tihmstar {
     namespace ra1nsn0w{
         class PluginObj{
         public:
-            virtual ~PluginObj();
             virtual bool argparse(std::string longopt, const char *optarg) = 0;
             virtual std::vector<patchfinder::patch> patcher(uint32_t component, const void *buf, size_t bufSize) = 0;
             virtual bool wantsPatchingRamdisk() = 0;
@@ -38,6 +37,7 @@ namespace tihmstar {
 
         struct Plugin{
             uint32_t apiVersion;
+            const char *pluginName;
             const char *cmdHelp;
             const struct option *longopts;
             f_constructor init;
