@@ -613,7 +613,7 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
                         try {
                             img4tool::ASN1DERElement pramdisk{rdskData.data(), rdskData.size()};
                             img4tool::ASN1DERElement payload = img4tool::getPayloadFromIM4P(pramdisk, ramdiskKeys.iv, ramdiskKeys.key, NULL);
-                            rdskData = {(const void*)payload.payload(), payload.size()};
+                            rdskData = {(const void*)payload.payload(), payload.payloadSize()};
                         } catch (tihmstar::exception &e) {
                             error("Failed to unpack ramdisk with error=%d (%s). Maybe not an IM4P file?",e.code(),e.what());
                         }
