@@ -34,8 +34,8 @@ case $host_os in
         ;;
 esac
 
-CXXFLAGS+=" -std=c++11"
-CFLAGS+=" -std=c11"
+CXXFLAGS+=" -std=c++23"
+CFLAGS+=" -std=c23"
 LDFLAGS+=" -lpthread"
 
 LIBGENERAL_REQUIRES_STR="libgeneral >= 92"
@@ -49,6 +49,9 @@ LIBPATCHFINDER_REQUIRES_STR="libpatchfinder >= 176"
 LIBPLIST_REQUIRES_STR="libplist-2.0 >= 2.3.0"
 LIBTSSCHECKER_REQUIRES_STR="libtsschecker >= 346"
 OPENSSL_REQUIRES_STR="openssl"
+LIBTSSCHECKER_REQUIRES_STR="libtsschecker >= 346"
+LIBRAMDISK_REQUIRES_STR="libramdisk >= 1"
+LIBRAMDISKPATCHER_REQUIRES_STR="libramdiskpatcher >= 1"
 
 PKG_CHECK_MODULES(libgeneral, $LIBGENERAL_REQUIRES_STR)
 PKG_CHECK_MODULES(libfragmentzip, $LIBFRAGMENTZIP_REQUIRES_STR)
@@ -61,6 +64,8 @@ PKG_CHECK_MODULES(libplist, $LIBPLIST_REQUIRES_STR)
 PKG_CHECK_MODULES(libtsschecker, $LIBTSSCHECKER_REQUIRES_STR)
 PKG_CHECK_MODULES(openssl, $OPENSSL_REQUIRES_STR, have_openssl=yes, have_openssl=no)
 PKG_CHECK_MODULES(libimg1tool, $LIBIMG1TOOL_REQUIRES_STR, have_img1tool=yes, have_img1tool=no)
+PKG_CHECK_MODULES(libramdisk, $LIBRAMDISK_REQUIRES_STR, have_ramdisk=yes, have_ramdisk=no)
+PKG_CHECK_MODULES(libramdiskpatcher, $LIBRAMDISKPATCHER_REQUIRES_STR, have_ramdiskpatcher=yes, have_ramdiskpatcher=no)
 
 AC_SUBST([libgeneral_requires], [$LIBGENERAL_REQUIRES_STR])
 AC_SUBST([libfragmentzip_requires], [$LIBFRAGMENTZIP_REQUIRES_STR])
@@ -109,6 +114,12 @@ AC_ARG_WITH([txmpatcher],
             [with_txmpatcher=no],
             [with_txmpatcher=yes])
 
+AC_ARG_WITH([ramdiskpatcher],
+            [AS_HELP_STRING([--without-ramdiskpatcher],
+            [do not build with ramdiskpatcher @<:@default=yes@:>@])],
+            [with_ramdiskpatcher=no],
+            [with_ramdiskpatcher=yes])
+
 AM_CONDITIONAL(WITH_IBOOTPATCHER, test x$with_ibootpatcher == xyes)
 AM_CONDITIONAL(WITH_KERNELPATCHER, test x$with_kernelpatcher == xyes)
 AM_CONDITIONAL(WITH_TXMPATCHER, test x$with_txmpatcher == xyes)
@@ -146,6 +157,24 @@ else
 fi
 AM_CONDITIONAL([HAVE_IMG1TOOL], [test "x$have_img1tool" = "xyes"])
 
+if test "x$with_ramdiskpatcher" == "xyes"; then
+  if test "x$have_ramdisk" = "xno"; then
+    AC_MSG_ERROR([requested building with ramdiskpatcher, but libRamdisk could not be found])
+  fi
+  if test "x$have_ramdiskpatcher" = "xno"; then
+    AC_MSG_ERROR([requested building with ramdiskpatcher, but libRamdiskPatcher could not be found])
+  fi
+  AC_DEFINE(HAVE_RAMDISK_PATCHER, [1], [Define if building with ramdiskpatcher])
+  AC_SUBST([libramdisk_requires], [$LIBRAMDISK_REQUIRES_STR])
+  AC_SUBST(libramdisk_CFLAGS)
+  AC_SUBST(libramdisk_LIBS)
+  AC_SUBST([libramdiskpatcher_requires], [$LIBRAMDISKPATCHER_REQUIRES_STR])
+  AC_SUBST(libramdiskpatcher_CFLAGS)
+  AC_SUBST(libramdiskpatcher_LIBS)
+else
+  echo "*** Note: ramdiskpatcher has been disabled ***"
+fi
+AM_CONDITIONAL([HAVE_RAMDISK_PATCHER], [test "x$with_ramdiskpatcher" = "xyes"])
 
 # Check for functions
 AC_CHECK_FUNCS([memmem asprintf strtoul_l])
@@ -170,7 +199,8 @@ Configuration for $PACKAGE-$VERSION:
   have plugin support .....: $plugin_support
   with iBootPatcher .......: $with_ibootpatcher
   with kernelPatcher ......: $with_kernelpatcher
-  with txmPatcher .........: $with_txmpatcher"
+  with txmPatcher .........: $with_txmpatcher
+  with ramdiskPatcher .....: $with_ramdiskpatcher"
 
 echo "  compiler ................: ${CC}
 

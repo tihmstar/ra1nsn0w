@@ -123,6 +123,17 @@ static struct option defaultLongopts[] = {
     { "txm-nopatch",                    no_argument,            NULL,  0  },
     { "txm-codesignature",              optional_argument,      NULL,  0  },
 
+#ifdef HAVE_RAMDISK_PATCHER
+    /* ramdisk patches: */
+    { "rpatch-asr-sigcheck",        no_argument,        NULL,  0  },
+    { "rpatch-asr-hardcodepw",      no_argument,        NULL,  0  },
+    { "rpatch-libimg4-sigcheck",    no_argument,        NULL,  0  },
+    { "rpatch-restored-sigcheck",   no_argument,        NULL,  0  },
+    { "rpatch-delete-nvmefw",       no_argument,        NULL,  0  },
+    { "rpatch-rm",                  required_argument,  NULL,  0  },
+    { "rpatch-put",                 required_argument,  NULL,  0  },
+#endif //HAVE_RAMDISK_PATCHER
+    
     /* Extra: */
     { "iv",                             required_argument,      NULL,  0  },
     { "key",                            required_argument,      NULL,  0  },
@@ -246,6 +257,19 @@ static const char helpScreenTXMPatches[] =
 "      --txm-nopatch\t\t\t\tDon't modify kernel IM4P and send as it is (only rename to rkrn)\n" \
 "      --txm-codesignature\t\t\tAllow unsigned code to run\n" \
 "\n";
+
+#ifdef HAVE_RAMDISK_PATCHER
+static const char helpScreenRamdiskPatches[] =
+"Ramdisk patches:\n" \
+"      --rpatch-asr-sigcheck\t\t\tPatch ASR Sigchecks (inside ramdisk)\n" \
+"      --rpatch-asr-hardcodepw\t\t\tPatch ASR to hardcode rootfs pw\n" \
+"      --rpatch-libimg4-sigcheck\t\t\tPatch libimg4 Sigchecks (inside ramdisk)\n" \
+"      --rpatch-restored-sigcheck\t\tPatch restored external Sigchecks (inside ramdisk)\n" \
+"      --rpatch-delete-nvmefw\t\t\tDelete nvme firmware (inside ramdisk)\n" \
+"      --rpatch-rm <PATH>\t\t\tDelete PATH inside ramdisk (recursively)\n" \
+"      --rpatch-put [<SRC>,]<DST>\t\tPut file from local <src> to <dst> on ramdisk, if <SRC> is omitted an empty file is created\n" \
+"\n";
+#endif //HAVE_RAMDISK_PATCHER
 
 #ifndef HAVE_STRTOUL_L
 #define strtoul_l _strtoul_l
@@ -409,6 +433,40 @@ static bool defaultparseArgument(launchConfig &cfg, std::string curopt, const ch
         cfg.txm_nopatch = true;
     }
     else parsePatchConfig("txm-codesignature",txm_codesig);
+#ifdef HAVE_RAMDISK_PATCHER
+    //Ramdisk patches
+    else parsePatchConfig("rpatch-asr-sigcheck",rpatch_asr_sigcheck);
+    else parsePatchConfig("rpatch-asr-hardcodepw",rpatch_asr_hardcodepw);
+    else parsePatchConfig("rpatch-libimg4-sigcheck",rpatch_libimg4_sigcheck);
+    else parsePatchConfig("rpatch-restored-sigcheck",rpatch_restored_sigcheck);
+    else parsePatchConfig("rpatch-delete-nvmefw",rpatch_delete_nvmefw);
+    else if (curopt == "rpatch-put") {
+        std::string putsrc = optarg;
+        ssize_t comma = putsrc.find(",");
+        if (comma == std::string::npos) {
+            cfg.rpatch_rdactions.push_back({
+                .type = kRDActionTypePut,
+                .path = putsrc,
+            });
+        }else{
+            std::string putdst = putsrc.substr(comma+1);
+            putsrc = putsrc.substr(0,comma);
+            cfg.rpatch_rdactions.push_back({
+                .type = kRDActionTypePut,
+                .path = putsrc,
+                .args = {
+                    putdst,
+                },
+            });
+        }
+    }
+    else if (curopt == "rpatch-rm") {
+        cfg.rpatch_rdactions.push_back({
+            .type = kRDActionTypeDelete,
+            .path = optarg,
+        });
+    }
+#endif //HAVE_RAMDISK_PATCHER
     else{
         return false;
     }
@@ -441,6 +499,9 @@ static void updateCmdHelperString(void){
     gCmdHelperString += helpScreenCustomizedBoot;
     gCmdHelperString += helpScreeniBootPatches;
     gCmdHelperString += helpScreenKernelPatches;
+#ifdef HAVE_RAMDISK_PATCHER
+    gCmdHelperString += helpScreenRamdiskPatches;
+#endif //HAVE_RAMDISK_PATCHER
 }
 
 static void updateLongopts(void){

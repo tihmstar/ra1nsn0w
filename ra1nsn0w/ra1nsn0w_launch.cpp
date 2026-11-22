@@ -606,28 +606,37 @@ std::map<uint32_t,std::vector<patchfinder::patch>> ra1nsn0w::launchDevice(iOSDev
     }
     
     if (rdskData.size()) {
+        auto patchRD = [&](std::function<tihmstar::Mem(const void *buf, size_t bufSize, bootconfig *bcfg)> f){
+            if (!ramdiskNeedsPacking){
+                if (isIMG4){
+                    try {
+                        img4tool::ASN1DERElement pramdisk{rdskData.data(), rdskData.size()};
+                        img4tool::ASN1DERElement payload = img4tool::getPayloadFromIM4P(pramdisk, ramdiskKeys.iv, ramdiskKeys.key, NULL);
+                        rdskData = {(const void*)payload.payload(), payload.payloadSize()};
+                    } catch (tihmstar::exception &e) {
+                        error("Failed to unpack ramdisk with error=%d (%s). Maybe not an IM4P file?",e.code(),e.what());
+                    }
+                }else{
+                    try {
+                        rdskData = img3tool::getPayloadFromIMG3(rdskData.data(), rdskData.size(), ramdiskKeys.iv, ramdiskKeys.key);
+                    } catch (tihmstar::exception &e) {
+                        error("Failed to unpack ramdisk with error=%d (%s). Maybe not an IMG3 file?",e.code(),e.what());
+                    }
+                }
+                ramdiskNeedsPacking = true;
+            }
+            auto newRamdisk = f(rdskData.data(), rdskData.size(), &bootcfg);
+            if (newRamdisk.size()) rdskData = newRamdisk;
+        };
+        if (wantsPatchingRamdisk(&bootcfg)) {
+            patchRD(patchFuncRamdisk);
+        }
         for (auto p : cfg.activePlugins) {
             if (p.second->wantsPatchingRamdisk()) {
-                if (!ramdiskNeedsPacking){
-                    if (isIMG4){
-                        try {
-                            img4tool::ASN1DERElement pramdisk{rdskData.data(), rdskData.size()};
-                            img4tool::ASN1DERElement payload = img4tool::getPayloadFromIM4P(pramdisk, ramdiskKeys.iv, ramdiskKeys.key, NULL);
-                            rdskData = {(const void*)payload.payload(), payload.payloadSize()};
-                        } catch (tihmstar::exception &e) {
-                            error("Failed to unpack ramdisk with error=%d (%s). Maybe not an IM4P file?",e.code(),e.what());
-                        }
-                    }else{
-                        try {
-                            rdskData = img3tool::getPayloadFromIMG3(rdskData.data(), rdskData.size(), ramdiskKeys.iv, ramdiskKeys.key);
-                        } catch (tihmstar::exception &e) {
-                            error("Failed to unpack ramdisk with error=%d (%s). Maybe not an IMG3 file?",e.code(),e.what());
-                        }
-                    }
-                    ramdiskNeedsPacking = true;
-                }
-                auto newRamdisk = p.second->ramdiskPatcher(rdskData.data(), rdskData.size());
-                if (newRamdisk.size()) rdskData = newRamdisk;
+                auto pluginRDPF = [&](const void *buf, size_t bufSize, bootconfig *bcfg)->tihmstar::Mem{
+                    return p.second->ramdiskPatcher(buf, bufSize);
+                };
+                patchRD(pluginRDPF);
             }
         }
     }

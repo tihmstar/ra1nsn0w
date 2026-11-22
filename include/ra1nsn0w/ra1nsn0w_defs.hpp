@@ -22,6 +22,16 @@ namespace tihmstar {
     namespace ra1nsn0w{
         class Plugin;
         class PluginObj;
+        enum RDActionType{
+            kRDActionTypeInvalid = 0,
+            kRDActionTypeDelete,
+            kRDActionTypePut,
+        };
+        struct RDAction{
+            RDActionType type;
+            std::string path;
+            std::vector<std::string> args;
+        };
         enum Patchcfg{
             kPatchcfgNo = 0,
             kPatchcfgYes = 1,
@@ -61,7 +71,8 @@ namespace tihmstar {
             std::string iboot_send_signed_sep = "";
 
             Patchcfg wtf_pwndfu = kPatchcfgNo;
-            
+
+            //iBoot patches
             Patchcfg iboot_nvramUnlock = kPatchcfgNo;
             Patchcfg iboot_add_rw_and_rx_mappings = kPatchcfgNo;
             Patchcfg iboot_disable_wxn_el3 = kPatchcfgNo;
@@ -79,6 +90,7 @@ namespace tihmstar {
             Patchcfg iboot_honor_bootargs = kPatchcfgNo;
             Patchcfg iboot_dtre_debug_enable = kPatchcfgNo;
 
+            //Kernel patches
             Patchcfg kpatch_codesig = kPatchcfgNo;
             Patchcfg kpatch_mount = kPatchcfgNo;
             Patchcfg kpatch_sandbox = kPatchcfgNo;
@@ -106,7 +118,16 @@ namespace tihmstar {
             Patchcfg kpatch_proc_enforce_disable = kPatchcfgNo;        
             Patchcfg kpatch_raw_sep_romcmd = kPatchcfgNo;
             
+            //TXM patches
             Patchcfg txm_codesig = kPatchcfgNo;
+
+            //Ramdisk patches
+            Patchcfg rpatch_asr_sigcheck = kPatchcfgNo;
+            Patchcfg rpatch_asr_hardcodepw = kPatchcfgNo;
+            Patchcfg rpatch_libimg4_sigcheck = kPatchcfgNo;
+            Patchcfg rpatch_restored_sigcheck = kPatchcfgNo;
+            Patchcfg rpatch_delete_nvmefw = kPatchcfgNo;
+            std::vector<RDAction> rpatch_rdactions;
 
             tihmstar::Mem root_ticket_hash;
             tihmstar::Mem kernelHardcoderoot_ticket_hash;
@@ -144,6 +165,7 @@ namespace tihmstar {
             bool skipiBEC;
             uint32_t curPatchComponent;
             std::map<uint32_t,std::vector<patchfinder::patch>> appliedPatches;
+            std::string platform;
         };
     };
 };

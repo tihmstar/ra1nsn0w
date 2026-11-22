@@ -1,6 +1,6 @@
 AM_CFLAGS = -I$(top_srcdir)/include $(GLOBAL_CFLAGS) $(libfragmentzip_CFLAGS) $(libfwkeyfetch_CFLAGS) $(libgeneral_CFLAGS) $(libimg4tool_CFLAGS) $(libimg3tool_CFLAGS) $(libirecovery_CFLAGS) $(libpatchfinder_CFLAGS) $(libplist_CFLAGS) $(libtsschecker_CFLAGS)
 AM_CXXFLAGS = $(AM_CFLAGS) $(GLOBAL_CXXFLAGS)
-AM_LDFLAGS = $(libfragmentzip_LIBS) $(libfwkeyfetch_LIBS) $(libgeneral_LIBS) $(libimg4tool_LIBS) $(libimg3tool_LIBS) $(libirecovery_LIBS) $(libpatchfinder_LIBS) $(libplist_LIBS) $(libtsschecker_LIBS)
+AM_LDFLAGS = $(libfragmentzip_LIBS) $(libfwkeyfetch_LIBS) $(libgeneral_LIBS) $(libimg4tool_LIBS) $(libimg3tool_LIBS) $(libirecovery_LIBS) $(libpatchfinder_LIBS) $(libplist_LIBS) $(libtsschecker_LIBS) 
 
 
 if HAVE_OPENSSL
@@ -13,6 +13,12 @@ if HAVE_IMG1TOOL
 AM_CFLAGS+=$(libimg1tool_CFLAGS)
 AM_CXXFLAGS+=$(libimg1tool_CFLAGS)
 AM_LDFLAGS+=$(libimg1tool_LIBS)
+endif
+
+if HAVE_RAMDISK_PATCHER
+AM_CFLAGS+=$(libramdisk_CFLAGS) $(libramdiskpatcher_CFLAGS)
+AM_CXXFLAGS+=$(libramdisk_CFLAGS) $(libramdiskpatcher_CFLAGS)
+AM_LDFLAGS+=$(libramdisk_LIBS) $(libramdiskpatcher_LIBS)
 endif
 
 bin_PROGRAMS = ra1nsn0w

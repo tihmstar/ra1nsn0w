@@ -21,7 +21,9 @@ namespace tihmstar {
         int patchFunciBoot(void *iBootBuf, size_t iBootBufSize, bootconfig *bcfg);
         int patchFuncKernel(void *kernelBuf, size_t kernelBufSize, bootconfig *bcfg);
         int patchFuncTXM(void *txmBuf, size_t txmBufSize, bootconfig *bcfg);
-    
+        tihmstar::Mem patchFuncRamdisk(const void *rdBuf, size_t rdBufSize, bootconfig *bcfg);
+        bool wantsPatchingRamdisk(bootconfig *bcfg);
+
         void exportPatchesToJson(std::map<uint32_t,std::vector<patchfinder::patch>> patches, const char *outfilePath);
     
         img4tool::ASN1DERElement patchIMG4(const void *buf, size_t bufSize, const char *ivstr, const char *keystr, std::string findstr, std::function<int(void *, size_t, void *)> patchfunc, void *param);

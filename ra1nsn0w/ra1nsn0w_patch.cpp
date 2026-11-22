@@ -18,7 +18,17 @@
 #include <libpatchfinder/txmpatchfinder/txmpatchfinder64.hpp>
 #include <img3tool/img3tool.hpp>
 
+#ifdef HAVE_RAMDISK_PATCHER
+#include <Ramdisk/Ramdisk.hpp>
+#include <RamdiskPatcher/RPPF.hpp>
+#include <RamdiskPatcher/utils.hpp>
+#endif //HAVE_RAMDISK_PATCHER
+
 #include <string.h>
+
+#define ASR_RAMDISK_PATH "/usr/sbin/asr"
+#define LIBIMG4_RAMDISK_PATH "/usr/lib/libimg4.dylib"
+#define RESTORED_RAMDISK_PATH "/usr/local/bin/restored_external"
 
 #ifndef HAVE_MEMMEM
 static void *memmem(const void *haystack_start, size_t haystack_len, const void *needle_start, size_t needle_len){
@@ -282,6 +292,12 @@ int ra1nsn0w::patchFunciBoot(void *iBootBuf, size_t iBootBufSize, bootconfig *bc
         }
         
         addiBootpatch(iboot_nvramUnlock, get_unlock_nvram_patch, "nvram_unlock")
+#ifdef HAVE_RAMDISK_PATCHER
+        if (bcfg->launchcfg->rpatch_asr_hardcodepw){
+            info("iBoot: Getting platform-name ...");
+            bcfg->platform = ibpf->get_platform_name();
+        }
+#endif
     }
     
     if (cfg->replacePatches.find(bcfg->curPatchComponent) != cfg->replacePatches.end()) {
@@ -520,6 +536,132 @@ int ra1nsn0w::patchFuncTXM(void *txmBuf, size_t txmBufSize, bootconfig *bcfg){
     
     info("TXM: Patches applied!");
     return 0;
+}
+
+tihmstar::Mem ra1nsn0w::patchFuncRamdisk(const void *rdBuf, size_t rdBufSize, bootconfig *bcfg){
+#ifndef HAVE_RAMDISK_PATCHER
+    reterror("Compiled without libRamdiskPatcher");
+#else
+    std::shared_ptr<Ramdisk::Ramdisk> ramdisk = Ramdisk::Ramdisk::make_ramdisk(rdBuf, rdBufSize);
+    if (bcfg->launchcfg->rpatch_asr_sigcheck || bcfg->launchcfg->rpatch_asr_hardcodepw){
+        tihmstar::Mem asr;
+        std::vector<tihmstar::patchfinder::patch> asrPatches;
+        std::shared_ptr<RamdiskPatcher::RPPF> asrPatcher;
+
+        if (!asr.size()) asr = ramdisk->extractFile(ASR_RAMDISK_PATH);
+        asrPatcher = RamdiskPatcher::RPPF::make_RPPF(asr.data(), asr.size());
+
+        if (bcfg->launchcfg->rpatch_asr_sigcheck) {
+            auto p = asrPatcher->getASRSigcheckPatches();
+            asrPatches.insert(asrPatches.end(), p.begin(), p.end());
+        }
+        
+        if (bcfg->launchcfg->rpatch_asr_hardcodepw) {
+            retassure(bcfg->platform.size(), "Can't derive passp for unknown platform!");
+            std::string passp = RamdiskPatcher::utils::genpassp(bcfg->platform.c_str(), rdBuf, rdBufSize);
+            info("[RPObj] Rootfs pass: %s",passp.c_str());
+            auto p = asrPatcher->getASRHardcodedPWPatches(passp.c_str());
+            asrPatches.insert(asrPatches.end(), p.begin(), p.end());
+        }
+            
+        if (asrPatches.size()) {
+            asrPatcher->applyPatches(asrPatches);
+            asr = RamdiskPatcher::utils::resignFile(asrPatcher->buf(), asrPatcher->bufSize());
+            ramdisk->putFile(ASR_RAMDISK_PATH, asr.data(), asr.size());
+        }
+    }
+    
+    {
+        tihmstar::Mem restored;
+        std::vector<tihmstar::patchfinder::patch> restoredPatches;
+        std::shared_ptr<RamdiskPatcher::RPPF> restoredPatcher;
+        
+        if (bcfg->launchcfg->rpatch_restored_sigcheck) {
+            if (!restored.size()) restored = ramdisk->extractFile(RESTORED_RAMDISK_PATH);
+            restoredPatcher = RamdiskPatcher::RPPF::make_RPPF(restored.data(), restored.size());
+            {
+                auto p = restoredPatcher->getRestoredSigcheckPatches();
+                restoredPatches.insert(restoredPatches.end(), p.begin(), p.end());
+            }
+        }
+            
+        if (restoredPatches.size()) {
+            restoredPatcher->applyPatches(restoredPatches);
+            restored = RamdiskPatcher::utils::resignFile(restoredPatcher->buf(), restoredPatcher->bufSize());
+            ramdisk->putFile(RESTORED_RAMDISK_PATH, restored.data(), restored.size());
+        }
+    }
+    
+    {
+        tihmstar::Mem libimg4;
+        std::vector<tihmstar::patchfinder::patch> libimg4Patches;
+        std::shared_ptr<RamdiskPatcher::RPPF> libimg4Patcher;
+        
+        if (bcfg->launchcfg->rpatch_libimg4_sigcheck) {
+            if (!libimg4.size()) libimg4 = ramdisk->extractFile(LIBIMG4_RAMDISK_PATH);
+            libimg4Patcher = RamdiskPatcher::RPPF::make_RPPF(libimg4.data(), libimg4.size());
+            {
+                auto p = libimg4Patcher->getLibIMG4SigcheckPatches();
+                libimg4Patches.insert(libimg4Patches.end(), p.begin(), p.end());
+            }
+        }
+            
+        if (libimg4Patches.size()) {
+            libimg4Patcher->applyPatches(libimg4Patches);
+            libimg4 = RamdiskPatcher::utils::resignFile(libimg4Patcher->buf(), libimg4Patcher->bufSize());
+            ramdisk->putFile(LIBIMG4_RAMDISK_PATH, libimg4.data(), libimg4.size());
+        }
+    }
+    
+    if (bcfg->launchcfg->rpatch_delete_nvmefw){
+        auto files = ramdisk->listFilesAtPath("/usr/standalone/firmware", true);
+        for (auto f : files){
+            if (f.ends_with(".pak")) ramdisk->rm(f.c_str());
+        }
+    }
+    
+    for (auto a : bcfg->launchcfg->rpatch_rdactions) {
+        switch (a.type) {
+            case kRDActionTypeDelete:
+                info("[RPObj] Deleting '%s'",a.path.c_str());
+                ramdisk->rm(a.path.c_str(), true);
+                break;
+            
+            case kRDActionTypePut:
+            {
+                if (a.args.size()) {
+                    std::string putsrc = a.path;
+                    std::string putdst = a.args.at(0);
+                    info("[RPObj] Putting file '%s' to '%s' in ramdisk",putsrc.c_str(),putdst.c_str());
+                    auto f = tihmstar::readFile(putsrc.c_str());
+                    ramdisk->putFile(putdst.c_str(), f.data(), f.size());
+                }else{
+                    std::string putdst = a.path;
+                    info("[RPObj] Creating empty file '%s' in ramdisk",putdst.c_str());
+                    ramdisk->putFile(putdst.c_str(), NULL, 0);
+                }
+            }
+                break;
+                
+            default:
+                reterror("Unhandled action type %d", a.type);
+        }
+    }
+    
+    return {ramdisk->buf(), ramdisk->bufSize()};
+#endif //HAVE_RAMDISK_PATCHER
+}
+
+bool ra1nsn0w::wantsPatchingRamdisk(bootconfig *bcfg){
+#ifdef HAVE_RAMDISK_PATCHER
+    if (bcfg->launchcfg->rpatch_asr_sigcheck) return true;
+    if (bcfg->launchcfg->rpatch_asr_hardcodepw) return true;
+    if (bcfg->launchcfg->rpatch_libimg4_sigcheck) return true;
+    if (bcfg->launchcfg->rpatch_restored_sigcheck) return true;
+    if (bcfg->launchcfg->rpatch_delete_nvmefw) return true;
+    if (bcfg->launchcfg->rpatch_rdactions.size()) return true;
+#endif
+    return false;
 }
 
 void ra1nsn0w::exportPatchesToJson(std::map<uint32_t,std::vector<patchfinder::patch>> patches, const char *outfilePath){
