@@ -16,9 +16,9 @@ AM_LDFLAGS+=$(libimg1tool_LIBS)
 endif
 
 if HAVE_RAMDISK_PATCHER
-AM_CFLAGS+=$(libramdisk_CFLAGS) $(libramdiskpatcher_CFLAGS)
-AM_CXXFLAGS+=$(libramdisk_CFLAGS) $(libramdiskpatcher_CFLAGS)
-AM_LDFLAGS+=$(libramdisk_LIBS) $(libramdiskpatcher_LIBS)
+AM_CFLAGS+=$(libramdisk_CFLAGS) $(libRamdiskPatcher_CFLAGS)
+AM_CXXFLAGS+=$(libramdisk_CFLAGS) $(libRamdiskPatcher_CFLAGS)
+AM_LDFLAGS+=$(libramdisk_LIBS) $(libRamdiskPatcher_LIBS)
 endif
 
 bin_PROGRAMS = ra1nsn0w

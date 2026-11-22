@@ -51,7 +51,7 @@ LIBTSSCHECKER_REQUIRES_STR="libtsschecker >= 346"
 OPENSSL_REQUIRES_STR="openssl"
 LIBTSSCHECKER_REQUIRES_STR="libtsschecker >= 346"
 LIBRAMDISK_REQUIRES_STR="libramdisk >= 1"
-LIBRAMDISKPATCHER_REQUIRES_STR="libramdiskpatcher >= 1"
+LIBRAMDISKPATCHER_REQUIRES_STR="libRamdiskPatcher >= 1"
 
 PKG_CHECK_MODULES(libgeneral, $LIBGENERAL_REQUIRES_STR)
 PKG_CHECK_MODULES(libfragmentzip, $LIBFRAGMENTZIP_REQUIRES_STR)
@@ -65,7 +65,7 @@ PKG_CHECK_MODULES(libtsschecker, $LIBTSSCHECKER_REQUIRES_STR)
 PKG_CHECK_MODULES(openssl, $OPENSSL_REQUIRES_STR, have_openssl=yes, have_openssl=no)
 PKG_CHECK_MODULES(libimg1tool, $LIBIMG1TOOL_REQUIRES_STR, have_img1tool=yes, have_img1tool=no)
 PKG_CHECK_MODULES(libramdisk, $LIBRAMDISK_REQUIRES_STR, have_ramdisk=yes, have_ramdisk=no)
-PKG_CHECK_MODULES(libramdiskpatcher, $LIBRAMDISKPATCHER_REQUIRES_STR, have_ramdiskpatcher=yes, have_ramdiskpatcher=no)
+PKG_CHECK_MODULES(libRamdiskPatcher, $LIBRAMDISKPATCHER_REQUIRES_STR, have_ramdiskpatcher=yes, have_ramdiskpatcher=no)
 
 AC_SUBST([libgeneral_requires], [$LIBGENERAL_REQUIRES_STR])
 AC_SUBST([libfragmentzip_requires], [$LIBFRAGMENTZIP_REQUIRES_STR])
@@ -168,9 +168,9 @@ if test "x$with_ramdiskpatcher" == "xyes"; then
   AC_SUBST([libramdisk_requires], [$LIBRAMDISK_REQUIRES_STR])
   AC_SUBST(libramdisk_CFLAGS)
   AC_SUBST(libramdisk_LIBS)
-  AC_SUBST([libramdiskpatcher_requires], [$LIBRAMDISKPATCHER_REQUIRES_STR])
-  AC_SUBST(libramdiskpatcher_CFLAGS)
-  AC_SUBST(libramdiskpatcher_LIBS)
+  AC_SUBST([libRamdiskPatcher_requires], [$LIBRAMDISKPATCHER_REQUIRES_STR])
+  AC_SUBST(libRamdiskPatcher_CFLAGS)
+  AC_SUBST(libRamdiskPatcher_LIBS)
 else
   echo "*** Note: ramdiskpatcher has been disabled ***"
 fi
